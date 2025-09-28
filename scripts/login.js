@@ -6,8 +6,8 @@ const firebaseConfig = {
   projectId: "my-inventory-final",
   storageBucket: "my-inventory-final.firebasestorage.app",
   messagingSenderId: "740246970535",
-  appId: "1:740246970535:web:f92607471d28a82ff67b82",
-  measurementId: "G-M3HS25Z6RR"
+  appId: "1:740246970535:web:f7738b92a6097671f67b82",
+  measurementId: "G-4ZF63VWX6Z"
 
 };
 // ********************************************
@@ -62,4 +62,5 @@ loginForm.addEventListener('submit', (e) => {
             }
         });
 });
+
 

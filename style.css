@@ -9,6 +9,7 @@
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Malgun Gothic', 'Arial', sans-serif; background-color: var(--light-gray); color: var(--dark-gray); font-size: 14px; }
+Malgun Gothic', 'Arial', sans-serif; background-color: var(--light-gray); color: var(--dark-gray); font-size: 14px; }
 .container { max-width: 1800px; margin: 0 auto; padding: 20px; }
 .header { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 30px; text-align: center; }
 .tab-container { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ddd; }

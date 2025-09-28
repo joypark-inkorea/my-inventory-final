@@ -13,8 +13,7 @@
     </style>
 </head>
 <body>
-    <div id="loader"><p>인증 정보를 확인하는 중...</p></div>
-
+    <div id="loader"><p>데이터를 불러오는 중...</p></div>
     <div id="app-content" style="display: none;">
         <div class="container">
             <div class="header">
@@ -25,7 +24,6 @@
                 🔔 이번 달은 백업을 할 차례입니다! '데이터 백업/복원' 탭에서 중요 데이터를 백업해주세요.
                 <button id="backup-reminder-btn" class="btn btn-warning">백업하러 가기</button>
             </div>
-
             <div class="tab-container">
                 <div class="tab active" data-tab="transaction">입출고 현황</div>
                 <div class="tab" data-tab="inventory">재고 관리</div>
@@ -54,8 +52,8 @@
                         <div class="input-field"><label>특이사항</label><input type="text" id="transaction-special-notes"></div>
                     </div>
                     <div class="btn-group" id="transaction-form-buttons">
-                        <button class="btn btn-primary">입출고 등록</button>
-                        <button class="btn btn-warning">대량 입출고 등록</button>
+                        <button id="add-transaction-btn" class="btn btn-primary">입출고 등록</button>
+                        <button id="open-bulk-upload-modal-btn" class="btn btn-warning">대량 입출고 등록</button>
                     </div>
                 </div>
                  <div class="section filter-section">
@@ -69,15 +67,15 @@
                         <input type="text" id="filter-tran-lot" placeholder="LOT 검색">
                         <input type="text" id="filter-tran-company" placeholder="업체 검색">
                     </div>
-                     <button class="btn btn-secondary">필터 초기화</button>
+                     <button id="reset-tran-filters-btn" class="btn btn-secondary">필터 초기화</button>
                 </div>
                 <div class="section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h3>입출고 내역</h3>
                         <div class="btn-group">
-                            <button class="btn btn-warning">✏️ 선택 수정</button>
-                            <button class="btn btn-danger">🗑️ 선택 삭제</button>
-                            <button class="btn btn-success">📊 CSV 내보내기</button>
+                            <button id="edit-selected-tran-btn" class="btn btn-warning">✏️ 선택 수정</button>
+                            <button id="delete-selected-tran-btn" class="btn btn-danger">🗑️ 선택 삭제</button>
+                            <button id="export-tran-csv-btn" class="btn btn-success">📊 CSV 내보내기</button>
                         </div>
                     </div>
                     <table class="transaction-table">
@@ -91,17 +89,13 @@
                         <tfoot>
                             <tr>
                                 <td colspan="7" style="text-align:center;">합계</td>
-                                <td id="total-tran-weight" style="text-align:left;"></td>
-                                <td></td>
-                                <td id="total-tran-amount" style="text-align:left;"></td>
-                                <td id="total-tran-other-costs" style="text-align:left;"></td>
+                                <td id="total-tran-weight"></td><td></td><td id="total-tran-amount"></td><td id="total-tran-other-costs"></td>
                                 <td colspan="4"></td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             </div>
-
             <div id="inventory" class="tab-content">
                 <div class="section filter-section">
                    <h3>재고 필터</h3>
@@ -111,12 +105,12 @@
                        <input type="text" id="filter-inv-spec" placeholder="스펙 검색">
                        <input type="text" id="filter-inv-lot" placeholder="LOT 검색">
                    </div>
-                   <button class="btn btn-secondary">필터 초기화</button>
+                   <button id="reset-inv-filters-btn" class="btn btn-secondary">필터 초기화</button>
                </div>
                <div class="section">
                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                        <h3>현재 재고 현황</h3>
-                       <button class="btn btn-success">CSV 내보내기</button>
+                       <button id="export-inv-csv-btn" class="btn btn-success">CSV 내보내기</button>
                    </div>
                    <table class="inventory-table">
                        <thead>
@@ -128,14 +122,12 @@
                        <tfoot>
                            <tr>
                                <td colspan="4" style="text-align:center;">합계</td>
-                               <td id="total-inv-weight" style="text-align:left;"></td>
-                               <td colspan="2"></td>
+                               <td id="total-inv-weight"></td><td colspan="2"></td>
                            </tr>
                        </tfoot>
                    </table>
                </div>
             </div>
-
             <div id="import-cost" class="tab-content">
                  <div class="section printable-section">
                     <h3 id="ic-form-title">수입 정산 등록</h3>
@@ -149,14 +141,12 @@
                                 <tr><th>CBM</th><td><input type="text" id="form-cbm"></td><th>포장</th><td><input type="text" id="form-packing"></td></tr>
                             </tbody>
                         </table>
-                        
                         <h4>2. 품목 정보</h4>
                         <table id="item-table">
-                            <thead><tr><th>품목</th><th>LOT</th><th>수량</th><th>단위</th><th>단가 ($)</th><th><button type="button" class="btn btn-primary btn-sm">+</button></th></tr></thead>
+                            <thead><tr><th>품목</th><th>LOT</th><th>수량</th><th>단위</th><th>단가 ($)</th><th><button type="button" id="ic-add-item-row-btn" class="btn btn-primary btn-sm">+</button></th></tr></thead>
                             <tbody id="item-tbody"></tbody>
                         </table>
                         <p style="text-align:right; font-weight:bold; margin-top:10px;">Total Invoice Value: <span id="total-invoice-value" class="highlight">$0.00</span></p>
-
                         <h4>3. 수입 부대 비용 정보</h4>
                         <table class="info-table">
                              <tbody>
@@ -166,22 +156,19 @@
                                 <tr><th>수입 총 비용 (원)</th><td><input type="text" id="form-forwarder-fee2"></td><th>국내 내륙 운송비 (원) </th><td><input type="text" id="form-forwarder-fee3"></td></tr>
                             </tbody>
                         </table>
-
                         <h4>4. 수입원가 자동계산 결과</h4>
                         <table id="result-table">
                              <thead><tr><th>품목</th><th>LOT</th><th>수량</th><th>단위</th><th>금액 ($)</th><th style="width:20%;">최종 수입원가 (단위)</th></tr></thead>
                              <tbody id="result-tbody"></tbody>
                         </table>
-
                         <div class="btn-group" style="margin-top: 20px;">
-                            <button type="button" class="btn btn-success">인쇄</button>
-                            <button type="button" class="btn btn-warning">대량 등록 (CSV)</button>
+                            <button type="button" id="ic-print-form-btn" class="btn btn-success">인쇄</button>
+                            <button type="button" id="ic-open-bulk-upload-modal-btn" class="btn btn-warning">대량 등록 (CSV)</button>
                             <button id="ic-submit-btn" class="btn btn-primary">정산서 등록</button>
                             <button id="ic-cancel-btn" type="button" class="btn btn-secondary" style="display:none;">취소</button>
                         </div>
                     </form>
                 </div>
-
                 <div class="section">
                     <h3>수입 정산 내역</h3>
                     <div class="filter-group">
@@ -189,19 +176,19 @@
                         <input type="text" id="filter-shipper" placeholder="Shipper 검색">
                         <input type="text" id="filter-item" placeholder="품목 검색">
                         <input type="text" id="filter-lot" placeholder="LOT 검색">
-                        <button class="btn btn-secondary">필터 초기화</button>
+                        <button id="ic-reset-filters-btn" class="btn btn-secondary">필터 초기화</button>
                     </div>
                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <button class="btn btn-success">CSV로 내보내기</button>
+                        <button id="ic-export-csv-btn" class="btn btn-success">CSV로 내보내기</button>
                         <div>
-                            <button class="btn btn-warning">선택 수정</button>
-                            <button class="btn btn-danger">선택 삭제</button>
+                            <button id="ic-edit-selected-btn" class="btn btn-warning">선택 수정</button>
+                            <button id="ic-delete-selected-btn" class="btn btn-danger">선택 삭제</button>
                         </div>
                     </div>
                     <table id="cost-list-table" style="table-layout: auto;">
                         <thead>
                             <tr>
-                                <th style="width: 40px;"><input type="checkbox"></th>
+                                <th style="width: 40px;"><input type="checkbox" id="ic-select-all-checkbox"></th>
                                 <th>ETA</th><th>Shipper</th><th>품목</th><th>LOT</th><th>수량 (KG)</th>
                                 <th>단가($)</th><th>Terms</th><th>C/O</th><th>Method</th><th>CBM</th>
                                 <th>포장</th><th>관세(%)</th><th>환율</th><th>수입원가(원)</th>
@@ -211,7 +198,6 @@
                     </table>
                 </div>
             </div>
-            
             <div id="invoice" class="tab-content">
                 <div class="section">
                    <h3>거래명세표 생성</h3>
@@ -227,17 +213,16 @@
                        <div class="input-field"><label>날짜 범위 (끝) *</label><input type="date" id="invoice-end-date" required></div>
                        <div class="input-field"><label>거래 구분 *</label><select id="invoice-transaction-type"><option value="all">전체</option><option value="입고">입고</option><option value="출고">출고</option></select></div>
                    </div>
-                   <button class="btn btn-primary">거래명세표 생성</button>
+                   <button id="generate-invoice-btn" class="btn btn-primary">거래명세표 생성</button>
                </div>
                <div class="invoice-wrapper printable-section" id="invoice-wrapper" style="display: none;">
                    <div id="invoice-controls">
-                        <button class="btn btn-primary">인쇄</button>
-                        <button class="btn btn-info">PDF로 저장</button>
+                        <button id="print-invoice-btn" class="btn btn-primary">인쇄</button>
+                        <button id="save-pdf-btn" class="btn btn-info">PDF로 저장</button>
                    </div>
                    <div id="invoice-content" class="invoice"></div>
                </div>
             </div>
-
             <div id="sales-report" class="tab-content">
                  <div class="section">
                     <h3>매출 보고서 필터</h3>
@@ -246,14 +231,14 @@
                         <input type="text" id="filter-sales-company" placeholder="업체 검색">
                         <input type="text" id="filter-sales-brand" placeholder="브랜드 검색">
                     </div>
-                    <button class="btn btn-primary">보고서 생성</button>
-                    <button class="btn btn-secondary">필터 초기화</button>
+                    <button id="generate-sales-report-btn" class="btn btn-primary">보고서 생성</button>
+                    <button id="reset-sales-filters-btn" class="btn btn-secondary">필터 초기화</button>
                 </div>
                 <div class="section" id="sales-report-content">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h3>매출 보고서 내역 (출고 기준)</h3>
                         <div class="btn-group">
-                             <button class="btn btn-success">📊 CSV 내보내기</button>
+                             <button id="export-sales-csv-btn" class="btn btn-success">📊 CSV 내보내기</button>
                         </div>
                     </div>
                     <table class="sales-report-table">
@@ -268,33 +253,28 @@
                          <tfoot>
                             <tr>
                                 <td colspan="6" style="text-align:center;">총 합계</td>
-                                <td id="total-sales-weight" style="text-align:left;"></td>
-                                <td id="total-sales-cost-of-goods" style="text-align:left;"></td>
-                                <td id="total-sales-other-costs" style="text-align:left;"></td>
-                                <td id="total-sales-total-costs" style="text-align:left;"></td>
-                                <td id="total-sales-amount" style="text-align:left;"></td>
-                                <td id="total-sales-margin" style="text-align:left;"></td>
-                                <td id="total-sales-margin-rate" style="text-align:left;"></td>
+                                <td id="total-sales-weight"></td><td id="total-sales-cost-of-goods"></td>
+                                <td id="total-sales-other-costs"></td><td id="total-sales-total-costs"></td>
+                                <td id="total-sales-amount"></td><td id="total-sales-margin"></td>
+                                <td id="total-sales-margin-rate"></td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             </div>
-
             <div id="backup" class="tab-content">
                 <div class="section">
                     <h3>데이터 백업 및 복원</h3>
                     <p>⚠️ 데이터 손실을 방지하기 위해 주기적으로 백업하는 것을 권장합니다.</p>
                     <div class="btn-group" style="margin-top: 20px;">
-                        <button class="btn btn-success">데이터 백업 (JSON 다운로드)</button>
+                        <button id="backup-data-btn" class="btn btn-success">데이터 백업 (JSON 다운로드)</button>
                         <label for="backup-file" class="btn btn-primary" style="cursor: pointer; margin-bottom: 0;">백업 파일 선택</label>
                         <input type="file" id="backup-file" accept=".json" style="display: none;">
-                        <button class="btn btn-warning" id="restore-button" disabled>데이터 복원 (JSON 업로드)</button>
+                        <button id="restore-button" class="btn btn-warning" disabled>데이터 복원 (JSON 업로드)</button>
                     </div>
                     <div id="backup-status" style="margin-top: 20px; color: green; font-weight: bold;"></div>
                 </div>
             </div>
-
             <div id="inventory-edit-section" style="display:none;" class="section">
                 <h3 id="inventory-form-title">재고 수정</h3>
                 <div class="input-group">
@@ -310,26 +290,25 @@
                     <div class="input-field"><label>도착지</label><input type="text" id="inv-destination"></div>
                 </div>
                 <div class="btn-group">
-                    <button class="btn btn-success" id="save-inventory-btn">수정 저장</button>
-                    <button class="btn btn-secondary" id="cancel-inventory-btn">취소</button>
+                    <button id="save-inventory-btn" class="btn btn-success">수정 저장</button>
+                    <button id="cancel-inventory-btn" class="btn btn-secondary">취소</button>
                 </div>
             </div>
         </div>
-
         <div id="bulkUploadModal" class="modal">
             <div class="modal-content">
-                <span class="close-button">&times;</span>
+                <span id="close-bulk-upload-modal-btn" class="close-button">&times;</span>
                 <h2>대량 입출고 등록</h2>
                 <div class="modal-body">
                     <p>대량 입출고를 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.</p>
                     <div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;">
-                        <button class="btn btn-info">템플릿 다운로드</button>
+                        <button id="download-tran-template-btn" class="btn btn-info">템플릿 다운로드</button>
                     </div>
                     <form id="bulk-upload-form" onsubmit="return false;">
                         <label for="bulk-csv-file">CSV 파일 선택:</label>
                         <input type="file" id="bulk-csv-file" accept=".csv">
                         <div class="btn-group" style="justify-content: flex-end;">
-                             <button type="button" class="btn btn-primary">대량 입출고 처리</button>
+                             <button type="button" id="process-bulk-upload-btn" class="btn btn-primary">대량 입출고 처리</button>
                              <button type="button" class="btn btn-secondary">닫기</button>
                         </div>
                     </form>
@@ -337,10 +316,9 @@
                 </div>
             </div>
         </div>
-
         <div id="ic_bulkUploadModal" class="modal">
             <div class="modal-content">
-                <span class="close-button">&times;</span>
+                <span id="ic-close-bulk-upload-modal-btn" class="close-button">&times;</span>
                 <h2>수입 정산서 대량 등록</h2>
                 <div class="modal-body">
                     <p>
@@ -348,13 +326,13 @@
                         <b>*중요:</b> 동일한 정산서에 속한 품목들은 '그룹ID'를 반드시 동일하게 입력해야 합니다.
                     </p>
                     <div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;">
-                        <button class="btn btn-info">템플릿 다운로드</button>
+                        <button id="ic-download-template-btn" class="btn btn-info">템플릿 다운로드</button>
                     </div>
                     <form id="ic_bulk-upload-form" onsubmit="return false;">
                         <label for="ic_bulk-csv-file">CSV 파일 선택:</label>
                         <input type="file" id="ic_bulk-csv-file" accept=".csv">
                         <div class="btn-group" style="justify-content: flex-end;">
-                             <button type="button" class="btn btn-primary">일괄 등록 처리</button>
+                             <button type="button" id="ic-process-bulk-upload-btn" class="btn btn-primary">일괄 등록 처리</button>
                              <button type="button" class="btn btn-secondary">닫기</button>
                         </div>
                     </form>
@@ -363,7 +341,6 @@
             </div>
         </div>
     </div>
-
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>

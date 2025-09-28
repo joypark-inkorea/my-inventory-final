@@ -2,7 +2,7 @@
 // Firebase 콘솔에서 확인한 내 프로젝트의 설정 정보를 여기에 붙여넣으세요.
 // login.js에 있는 것과 동일해야 합니다.
 const firebaseConfig = {
-apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
+  apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
   authDomain: "my-inventory-final.firebaseapp.com",
   projectId: "my-inventory-final",
   storageBucket: "my-inventory-final.firebasestorage.app",
@@ -21,7 +21,7 @@ const db = firebase.firestore();
 const transactionsCollection = db.collection('transactions');
 const importCostSheetsCollection = db.collection('importCostSheets');
 
-// 전역 변수 (데이터를 메모리에 저장하여 UI를 빠르게 업데이트)
+// 전역 변수
 let inventory = [];
 let transactions = [];
 let ic_costSheets = [];
@@ -30,44 +30,35 @@ let ic_editingId = null;
 
 // ================== 1. 인증 및 앱 초기화 ==================
 
-// 사용자의 로그인 상태를 확인하는 것으로 모든 것을 시작합니다.
 auth.onAuthStateChanged(user => {
     if (user) {
-        // 사용자가 로그인 되어 있으면,
         console.log('로그인 된 사용자:', user.email);
-        loadAllDataFromFirebase(); // Firestore에서 모든 데이터를 불러옵니다.
+        loadAllDataFromFirebase();
     } else {
-        // 사용자가 로그인 되어 있지 않으면,
         console.log('로그인 필요');
-        window.location.href = 'login.html'; // 로그인 페이지로 보냅니다.
+        window.location.href = 'login.html';
     }
 });
 
-// 로그아웃 버튼 클릭 이벤트
 document.getElementById('logout-btn').addEventListener('click', () => {
     auth.signOut().then(() => {
         console.log('로그아웃 성공');
-        window.location.href = 'login.html'; // 로그아웃 성공 시 로그인 페이지로 이동
+        window.location.href = 'login.html';
     }).catch(error => console.error('로그아웃 실패:', error));
 });
 
-// Firestore에서 모든 데이터를 비동기적으로 불러오는 함수
 async function loadAllDataFromFirebase() {
     try {
         console.log("Firestore에서 데이터 로드를 시작합니다...");
-        // 입출고 내역과 수입원가 내역을 동시에 요청하여 빠르게 받아옵니다.
         const [tranSnapshot, costSheetSnapshot] = await Promise.all([
             transactionsCollection.get(),
             importCostSheetsCollection.get()
         ]);
 
-        // 받아온 데이터를 전역 변수에 저장합니다. id를 포함하여 저장하는 것이 중요합니다.
         transactions = tranSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         ic_costSheets = costSheetSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         console.log(`데이터 로드 완료. 입출고: ${transactions.length}건, 수입원가: ${ic_costSheets.length}건`);
-        
-        // 데이터 로드가 완료된 후에 UI를 초기화합니다.
         initializeAppUI();
     } catch (error) {
         console.error("데이터 로딩 중 오류 발생:", error);
@@ -75,7 +66,6 @@ async function loadAllDataFromFirebase() {
     }
 }
 
-// 데이터 로드 후 화면(UI)을 설정하는 함수
 function initializeAppUI() {
     console.log("UI 초기화를 시작합니다...");
     const today = new Date().toISOString().slice(0, 10);
@@ -84,17 +74,13 @@ function initializeAppUI() {
     document.getElementById('invoice-start-date').value = firstDayOfMonth;
     document.getElementById('invoice-end-date').value = today;
 
-    // 모든 이벤트 리스너를 한 번에 바인딩합니다.
     bindEventListeners();
-    
-    // 모든 데이터를 기반으로 화면을 업데이트합니다.
     updateAll();
     ic_renderList();
     ic_addItemRow();
     console.log("UI 초기화 완료.");
 }
 
-// 각종 필터 등의 이벤트 리스너를 묶어서 관리
 function bindEventListeners() {
     ['filter-inv-brand', 'filter-inv-category', 'filter-inv-spec', 'filter-inv-lot', 
      'filter-tran-type', 'filter-tran-month', 'filter-tran-brand', 'filter-tran-category', 
@@ -108,10 +94,8 @@ function bindEventListeners() {
     document.getElementById('tran-lot').addEventListener('blur', autoFillItemDetails);
 }
 
-
 // ================== 2. Firebase 데이터 처리 (CRUD) ==================
 
-// (CREATE & UPDATE) 입출고 내역 추가 또는 수정
 async function processTransaction(isEdit) {
     const record = {
         type: document.getElementById('transaction-type').value,
@@ -130,51 +114,44 @@ async function processTransaction(isEdit) {
     };
 
     if (!record.date || !record.brand || !record.lot || record.weight <= 0 || !record.company) {
-        alert('필수 항목(날짜, 브랜드, LOT, 중량, 업체)을 모두 입력해주세요.');
-        return;
+        return alert('필수 항목(날짜, 브랜드, LOT, 중량, 업체)을 모두 입력해주세요.');
     }
 
     try {
         if (isEdit) {
-            // 수정 모드: 기존 문서 ID를 사용하여 데이터를 업데이트합니다.
             await transactionsCollection.doc(editingTransactionId).update(record);
-            // 로컬 데이터도 업데이트
             const index = transactions.findIndex(t => t.id === editingTransactionId);
             if (index > -1) transactions[index] = { id: editingTransactionId, ...record };
             alert('거래내역이 수정되었습니다.');
         } else {
-            // 추가 모드: 새로운 문서를 Firestore에 추가합니다.
             const docRef = await transactionsCollection.add(record);
-            // 로컬 데이터에도 추가 (Firestore에서 다시 읽어오지 않아도 됨)
             transactions.push({ id: docRef.id, ...record });
             alert('입출고 내역이 등록되었습니다.');
         }
-        updateAll(); // 화면 전체 업데이트
-        cancelTransactionEdit(); // 입력 폼 초기화
+        updateAll();
+        cancelTransactionEdit();
     } catch (error) {
         console.error("데이터 저장 오류:", error);
         alert("데이터를 저장하는 중 오류가 발생했습니다.");
     }
 }
 
-// (CREATE) 대량 입출고 처리
 async function processBulkTransactions(records) {
-    // Batch write를 사용하여 여러 문서를 한 번의 요청으로 처리 (효율적)
     const batch = db.batch();
     const newLocalTransactions = [];
     let successCount = 0;
     
     for (const record of records) {
         if (!record.date || !record.brand || !record.lot || record.weight <= 0 || !record.company) continue;
-        const docRef = transactionsCollection.doc(); // 자동으로 새 ID 생성
+        const docRef = transactionsCollection.doc();
         batch.set(docRef, record);
         newLocalTransactions.push({ id: docRef.id, ...record });
         successCount++;
     }
 
     try {
-        await batch.commit(); // Batch 실행
-        transactions.push(...newLocalTransactions); // 로컬 데이터에 반영
+        await batch.commit();
+        transactions.push(...newLocalTransactions);
         document.getElementById('bulk-upload-status').innerText = `총 ${records.length}건 중 ${successCount}건 처리 성공.`;
         updateAll();
     } catch (error) {
@@ -183,7 +160,6 @@ async function processBulkTransactions(records) {
     }
 }
 
-// (DELETE) 선택된 입출고 내역 삭제
 async function deleteSelectedTransactions() {
     const selectedIds = Array.from(document.querySelectorAll('.transaction-checkbox:checked')).map(cb => cb.value);
     if (selectedIds.length === 0) return alert('삭제할 항목을 선택하세요.');
@@ -192,9 +168,8 @@ async function deleteSelectedTransactions() {
     try {
         const batch = db.batch();
         selectedIds.forEach(id => batch.delete(transactionsCollection.doc(id)));
-        await batch.commit(); // Batch 삭제 실행
+        await batch.commit();
         
-        // 로컬 데이터에서 삭제
         transactions = transactions.filter(t => !selectedIds.includes(t.id));
         updateAll();
         alert(`${selectedIds.length}개의 거래가 삭제되었습니다.`);
@@ -204,7 +179,6 @@ async function deleteSelectedTransactions() {
     }
 }
 
-// (CREATE & UPDATE) 수입원가 정산서 추가 또는 수정
 async function ic_processCostSheet(isEdit) {
     const sheetData = {
         shipper: document.getElementById('form-shipper').value.trim(),
@@ -241,7 +215,6 @@ async function ic_processCostSheet(isEdit) {
         return alert('필수 항목(Shipper, ETD, 적용환율, 품목 정보)을 모두 입력해주세요.');
     }
     
-    // 최종원가 계산 로직 (기존과 동일)
     let totalInvoiceValue = sheetData.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
     const exchangeRate = ic_pFloat(sheetData.exchangeRate);
     const invoiceKrw = totalInvoiceValue * exchangeRate;
@@ -272,7 +245,6 @@ async function ic_processCostSheet(isEdit) {
     }
 }
 
-// (DELETE) 선택된 수입원가 정산서 삭제
 async function ic_deleteSelectedSheets() {
     const selectedIds = Array.from(document.querySelectorAll('.sheet-checkbox:checked')).map(cb => cb.value);
     if (selectedIds.length === 0) return alert('삭제할 항목을 선택하세요.');
@@ -292,18 +264,30 @@ async function ic_deleteSelectedSheets() {
     }
 }
 
+// ================== 3. UI 및 비즈니스 로직 (원본 파일의 모든 함수 포함) ==================
 
-// ================== 3. UI 및 비즈니스 로직 (기존 코드 재사용 및 수정) ==================
+// 🔴 이전에 누락되었던 함수!
+function updateDatalists() {
+    const sets = { brand: new Set(), lot: new Set(), company: new Set() };
+    transactions.forEach(t => {
+        if (t.brand) sets.brand.add(t.brand);
+        if (t.lot) sets.lot.add(t.lot);
+        if (t.company) sets.company.add(t.company);
+    });
+    const toOption = item => `<option value="${item}"></option>`;
+    document.getElementById('brand-list').innerHTML = [...sets.brand].sort().map(toOption).join('');
+    document.getElementById('lot-list').innerHTML = [...sets.lot].sort().map(toOption).join('');
+    document.getElementById('company-list-tran').innerHTML = [...sets.company].sort().map(toOption).join('');
+    document.getElementById('company-list-invoice').innerHTML = [...sets.company].sort().map(toOption).join('');
+}
 
-// 전체 화면을 다시 계산하고 그리는 함수
 function updateAll() {
     recalculateInventory(); 
     applyFiltersAndRender(); 
-    updateDatalists();
+    updateDatalists(); // 이제 이 함수가 존재하므로 오류가 발생하지 않습니다.
     generateSalesReport(); 
 }
 
-// 탭 보여주기
 function showTab(tabName) {
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -313,9 +297,6 @@ function showTab(tabName) {
     ic_clearForm();
     if(tabName === 'sales-report') generateSalesReport();
 }
-
-// 이하 모든 함수들은 원본 HTML 파일의 스크립트와 거의 동일합니다.
-// localStorage.setItem/getItem 관련 부분만 제거/수정되었습니다.
 
 const ic_pFloat = (val) => parseFloat(String(val).replace(/,/g, '')) || 0;
 
@@ -596,7 +577,6 @@ function exportInventoryCSV() {
 }
 
 function exportTransactionCSV() {
-    const headers = ['거래구분', '날짜', '브랜드', '품목구분', '스펙', 'LOT', '중량(kg)', '단가(원/kg)', '금액(원)', '기타 비용(원)', '업체', '비고', '도착지', '특이사항'];
     const csvData = transactions.sort((a,b) => new Date(b.date) - new Date(a.date)).map(t => ({
         '거래구분': t.type, '날짜': t.date, '브랜드': t.brand, '품목구분': t.category, '스펙': t.spec, 'LOT': t.lot,
         '중량(kg)': t.weight, '단가(원/kg)': t.unitPrice, '금액(원)': t.weight * t.unitPrice, 
@@ -671,7 +651,6 @@ function generateSalesReport() {
     const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
     const brandFilter = document.getElementById('filter-sales-brand').value.toLowerCase();
     
-    // 문제가 되었던 변수 이름을 'outgoingTransactions'로 명확하게 변경하고 수정했습니다.
     const outgoingTransactions = transactions.filter(t => 
         t.type === '출고' && 
         (!monthFilter || t.date.startsWith(monthFilter)) &&
@@ -723,7 +702,7 @@ function generateSalesReport() {
     document.getElementById('total-sales-margin').innerText = totalMargin.toLocaleString(undefined, {maximumFractionDigits:2});
     document.getElementById('total-sales-margin-rate').innerText = `${totalMarginRate}%`;
 }
-
+        
 function toggleAllCheckboxes(className, checked) {
     document.querySelectorAll(`.${className}`).forEach(checkbox => checkbox.checked = checked);
 }
@@ -847,21 +826,25 @@ function ic_editSelectedSheet() {
     if (selectedIds.length !== 1) { return alert('수정할 항목을 하나만 선택하세요.'); }
     const sheet = ic_costSheets.find(s => s.id === selectedIds[0]);
     if (!sheet) return;
+    
     ic_editingId = sheet.id;
     
     document.getElementById('form-shipper').value = sheet.shipper;
-    // ... (Populate all other form fields from 'sheet' object)
-    const formatAndSet = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.value = (value !== null && value !== undefined) ? ic_pFloat(value).toLocaleString('en-US', { maximumFractionDigits: 10 }) : '';
-    };
-    ['form-terms', 'form-origin', 'form-method', 'form-etd', 'form-eta', 'form-cbm', 'form-packing', 'form-tariff-rate'].forEach(id => {
-        document.getElementById(id).value = sheet[id.replace('form-','')] || '';
-    });
-    formatAndSet('form-exchange-rate', sheet.exchangeRate);
-    formatAndSet('form-shipping-fee', sheet.shippingFee);
-    formatAndSet('form-tariff-amount', sheet.tariffAmount);
-    // ... (populate other numeric fields)
+    document.getElementById('form-terms').value = sheet.terms || '';
+    document.getElementById('form-origin').value = sheet.origin || '';
+    document.getElementById('form-method').value = sheet.method || '';
+    document.getElementById('form-etd').value = sheet.etd || '';
+    document.getElementById('form-eta').value = sheet.eta || '';
+    document.getElementById('form-cbm').value = sheet.cbm || '';
+    document.getElementById('form-packing').value = sheet.packing || '';
+    document.getElementById('form-exchange-rate').value = sheet.exchangeRate || '';
+    document.getElementById('form-shipping-fee').value = sheet.shippingFee || '';
+    document.getElementById('form-tariff-rate').value = sheet.tariffRate || '';
+    document.getElementById('form-tariff-amount').value = sheet.tariffAmount || '';
+    document.getElementById('form-vat-amount').value = sheet.vatAmount || '';
+    document.getElementById('form-forwarder-fee1').value = sheet.forwarderFee1 || '';
+    document.getElementById('form-forwarder-fee2').value = sheet.forwarderFee2 || '';
+    document.getElementById('form-forwarder-fee3').value = sheet.forwarderFee3 || '';
 
     const itemTbody = document.getElementById('item-tbody');
     itemTbody.innerHTML = '';
@@ -875,6 +858,7 @@ function ic_editSelectedSheet() {
             <td><input type="text" class="item-price" value="${item.price.toLocaleString()}" oninput="ic_calculateAll()" onblur="ic_formatInputForDisplay(this)"></td>
             <td><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); ic_calculateAll();">-</button></td>`;
     });
+
     ic_calculateAll();
     document.getElementById('ic-form-title').textContent = '수입 정산 수정';
     document.getElementById('ic-submit-btn').textContent = '수정 저장';
@@ -889,7 +873,6 @@ function ic_toggleAllListCheckboxes(checked) {
 function ic_printForm() { window.print(); }
 
 function ic_exportListToCsv() {
-    const headers = ["ETA", "Shipper", "품목", "LOT", "수량 (단위)", "단가($)", "Terms", "C/O", "Method", "CBM", "포장", "관세(%)", "환율", "수입원가(원)"];
     const csvData = [];
     ic_costSheets.forEach(sheet => {
         sheet.items.forEach(item => {
@@ -908,20 +891,17 @@ function ic_exportListToCsv() {
 function ic_openBulkUploadModal() { document.getElementById('ic_bulkUploadModal').style.display = 'flex'; }
 function ic_closeBulkUploadModal() { document.getElementById('ic_bulkUploadModal').style.display = 'none'; }
 function ic_downloadBulkTemplate() {
-    const headers = [ "그룹ID*", "Shipper*", "ETD*(YYYY-MM-DD)", "적용환율*", "품목*", "LOT*", "수량*", "단가($)*" /* ... and others */ ];
+    const headers = [ "그룹ID*", "Shipper*", "ETD*(YYYY-MM-DD)", "적용환율*", "품목*", "LOT*", "수량*", "단가($)*" ];
     downloadCSV(headers.join(','), '수입정산서_일괄등록_템플릿');
 }
 
-// (ic_processBulkUpload would need to be adapted for Firestore async operations, skipped for brevity but would follow the pattern of processBulkTransactions)
 function ic_processBulkUpload() { alert('대량 등록 기능은 Firestore에 맞게 수정이 필요합니다.'); }
 
 
 // ================== 4. HTML onclick과 함수 연결 ==================
-// HTML에서 onclick으로 호출하는 함수들을 window 객체에 할당해야 합니다.
 window.showTab = showTab;
 window.toggleOtherCostsField = toggleOtherCostsField;
 window.addTransaction = () => processTransaction(false);
-window.processTransaction = processTransaction;
 window.openBulkUploadModal = openBulkUploadModal;
 window.resetTransactionFilters = resetTransactionFilters;
 window.editSelectedTransaction = editSelectedTransaction;
@@ -941,8 +921,6 @@ window.saveInvoiceAsPDF = saveInvoiceAsPDF;
 window.generateSalesReport = generateSalesReport;
 window.resetSalesReportFilters = resetSalesReportFilters;
 window.exportSalesReportCSV = exportSalesReportCSV;
-
-// --- 수입원가 함수들 ---
 window.ic_addItemRow = ic_addItemRow;
 window.ic_calculateAll = ic_calculateAll;
 window.ic_formatInputForDisplay = ic_formatInputForDisplay;

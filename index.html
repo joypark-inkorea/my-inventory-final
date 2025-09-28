@@ -21,6 +21,7 @@
             <div class="tab" onclick="showTab('import-cost')">수입원가 정산</div>
             <div class="tab" onclick="showTab('invoice')">거래명세표</div>
             <div class="tab" onclick="showTab('sales-report')">매출 보고서</div>
+            <div class="tab" onclick="showTab('backup')">데이터 백업/복원</div>
         </div>
 
         <div id="transaction" class="tab-content active">
@@ -125,7 +126,7 @@
         </div>
 
         <div id="import-cost" class="tab-content">
-             <div class="section printable-section">
+            <div class="section printable-section">
                 <h3 id="ic-form-title">수입 정산 등록</h3>
                 <form id="ic-cost-form" onsubmit="return false;">
                     <h4>1. 기본 선적 정보</h4>
@@ -276,6 +277,23 @@
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+        </div>
+
+        <div id="backup" class="tab-content">
+            <div class="section">
+                <h3>데이터 백업 및 복원</h3>
+                <p>⚠️ Firebase 클라우드에 데이터가 안전하게 저장되지만, 만약을 위해 전체 데이터를 파일로 백업할 수 있습니다.</p>
+                <p style="color: var(--danger-color); font-weight: bold; margin-top: 10px;">
+                    [주의] 데이터 복원은 현재 클라우드의 모든 데이터를 덮어쓰는 위험한 작업입니다. 반드시 모든 사용자와 협의 후, 비상시에만 사용하세요.
+                </p>
+                <div class="btn-group" style="margin-top: 20px;">
+                    <button class="btn btn-success" onclick="backupDataToJson()">데이터 백업 (JSON 다운로드)</button>
+                    <label for="backup-file" class="btn btn-primary" style="cursor: pointer; margin-bottom: 0;">백업 파일 선택</label>
+                    <input type="file" id="backup-file" accept=".json" style="display: none;" onchange="loadBackupFile(event)">
+                    <button class="btn btn-danger" onclick="restoreDataFromJson()" id="restore-button" disabled>데이터 복원 (JSON 업로드)</button>
+                </div>
+                <div id="backup-status" style="margin-top: 20px; font-weight: bold;"></div>
             </div>
         </div>
 

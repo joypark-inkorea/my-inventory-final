@@ -1,11 +1,14 @@
 // 🔥 중요: 이 곳에 본인의 Firebase 프로젝트 설정 키를 붙여넣으세요.
 const firebaseConfig = {
-    apiKey: "AIzaSy...",
-    authDomain: "your-project-id.firebaseapp.com",
-    projectId: "your-project-id",
-    storageBucket: "your-project-id.appspot.com",
-    messagingSenderId: "...",
-    appId: "..."
+ apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
+  authDomain: "my-inventory-final.firebaseapp.com",
+  projectId: "my-inventory-final",
+  storageBucket: "my-inventory-final.firebasestorage.app",
+  messagingSenderId: "740246970535",
+  appId: "1:740246970535:web:f7738b92a6097671f67b82",
+  measurementId: "G-4ZF63VWX6Z"
+
+    
 };
 
 if (!firebase.apps.length) {
@@ -96,3 +99,4 @@ function startApp() {
     // 앱 실행 시작점
     loadAllDataFromFirebase();
 }
+

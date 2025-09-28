@@ -6,8 +6,8 @@ const firebaseConfig = {
   projectId: "my-inventory-final",
   storageBucket: "my-inventory-final.firebasestorage.app",
   messagingSenderId: "740246970535",
-  appId: "1:740246970535:web:f92607471d28a82ff67b82",
-  measurementId: "G-M3HS25Z6RR"
+  appId: "1:740246970535:web:f7738b92a6097671f67b82",
+  measurementId: "G-4ZF63VWX6Z"
 
 };
 // ********************************************
@@ -532,4 +532,5 @@ window.exportSalesReportCSV = exportSalesReportCSV;
 // --- 수입원가 함수들 ---
 // (모든 ic_ 함수들을 window 객체에 할당해야 onclick에서 작동합니다)
 // window.ic_addItemRow = ic_addItemRow; ... etc
+
 

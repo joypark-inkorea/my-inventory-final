@@ -1,11 +1,12 @@
 // 🔥 중요: 이 곳에 본인의 Firebase 프로젝트 설정 키를 붙여넣으세요.
 const firebaseConfig = {
-    apiKey: "AIzaSy...",
-    authDomain: "your-project-id.firebaseapp.com",
-    projectId: "your-project-id",
-    storageBucket: "your-project-id.appspot.com",
-    messagingSenderId: "...",
-    appId: "..."
+ apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
+  authDomain: "my-inventory-final.firebaseapp.com",
+  projectId: "my-inventory-final",
+  storageBucket: "my-inventory-final.firebasestorage.app",
+  messagingSenderId: "740246970535",
+  appId: "1:740246970535:web:f7738b92a6097671f67b82",
+  measurementId: "G-4ZF63VWX6Z"
 };
 
 console.log("진단 스크립트: 시작 (1/7)");
@@ -52,3 +53,4 @@ try {
     console.error("진단 스크립트: Firebase 초기화 중 치명적 오류 발생!", error);
     alert("Firebase 초기화 중 오류가 발생했습니다. 개발자 도구의 Console 내용을 확인해주세요.");
 }
+

@@ -670,16 +670,20 @@ function generateSalesReport() {
     const monthFilter = document.getElementById('filter-sales-month').value;
     const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
     const brandFilter = document.getElementById('filter-sales-brand').value.toLowerCase();
-    const出고Transactions = transactions.filter(t => 
-        t.type === '출고' && (!monthFilter || t.date.startsWith(monthFilter)) &&
+    
+    // 문제가 되었던 변수 이름을 'outgoingTransactions'로 명확하게 변경하고 수정했습니다.
+    const outgoingTransactions = transactions.filter(t => 
+        t.type === '출고' && 
+        (!monthFilter || t.date.startsWith(monthFilter)) &&
         (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
         (!brandFilter || t.brand.toLowerCase().includes(brandFilter))
     );
+
     const tbody = document.getElementById('sales-report-tbody');
     tbody.innerHTML = '';
     let totalWeight = 0, totalSalesAmount = 0, totalCostOfGoods = 0, totalOtherCosts = 0;
     
-    출고Transactions.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
+    outgoingTransactions.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
         const costPrice = (transactions.find(it => 
             it.type === '입고' && it.brand === t.brand && it.lot === t.lot
         ) || { unitPrice: 0 }).unitPrice;
@@ -718,20 +722,6 @@ function generateSalesReport() {
     document.getElementById('total-sales-amount').innerText = totalSalesAmount.toLocaleString(undefined, {maximumFractionDigits:2});
     document.getElementById('total-sales-margin').innerText = totalMargin.toLocaleString(undefined, {maximumFractionDigits:2});
     document.getElementById('total-sales-margin-rate').innerText = `${totalMarginRate}%`;
-}
-        
-function updateDatalists() {
-    const sets = { brand: new Set(), lot: new Set(), company: new Set() };
-    transactions.forEach(t => {
-        if (t.brand) sets.brand.add(t.brand);
-        if (t.lot) sets.lot.add(t.lot);
-        if (t.company) sets.company.add(t.company);
-    });
-    const toOption = item => `<option value="${item}"></option>`;
-    document.getElementById('brand-list').innerHTML = [...sets.brand].sort().map(toOption).join('');
-    document.getElementById('lot-list').innerHTML = [...sets.lot].sort().map(toOption).join('');
-    document.getElementById('company-list-tran').innerHTML = [...sets.company].sort().map(toOption).join('');
-    document.getElementById('company-list-invoice').innerHTML = [...sets.company].sort().map(toOption).join('');
 }
 
 function toggleAllCheckboxes(className, checked) {

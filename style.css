@@ -1,38 +1,195 @@
 :root {
-    --primary-color: #667eea; --secondary-color: #764ba2; --success-color: #28a745;
-    --danger-color: #e74c3c; --warning-color: #f39c12; --light-gray: #f5f5f5; --dark-gray: #333;
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --success-color: #28a745;
+    --danger-color: #e74c3c;
+    --warning-color: #f39c12;
+    --light-gray: #f5f5f5;
+    --dark-gray: #333;
 }
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Malgun Gothic', 'Arial', sans-serif; background-color: var(--light-gray); color: var(--dark-gray); font-size: 14px; }
 .container { max-width: 1800px; margin: 0 auto; padding: 20px; }
-.header { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 30px; text-align: center; }
+.header { background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
 .tab-container { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ddd; }
 .tab { padding: 15px 25px; background: #f8f9fa; border: 1px solid #ddd; border-bottom: none; cursor: pointer; transition: all 0.3s ease; margin-right: 5px; border-radius: 10px 10px 0 0; }
 .tab.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
-.tab-content { display: none; }
+.tab-content { display: none; background: white; padding: 20px; border-radius: 0 10px 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 .tab-content.active { display: block; }
 .section { margin-bottom: 30px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 .section h3 { color: var(--primary-color); margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid var(--primary-color); }
 .section h4 { font-size: 1.1rem; margin-top: 30px; margin-bottom: 20px; padding-bottom: 10px; color: var(--primary-color); border-bottom: 2px solid var(--primary-color); }
-.input-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; align-items: flex-start; grid-auto-rows: minmax(min-content, max-content); }
+
+.input-group { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+    gap: 15px; 
+    margin-bottom: 15px; 
+    align-items: flex-start; 
+    grid-auto-rows: minmax(min-content, max-content); 
+}
 .filter-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 15px; }
-.input-field { display: flex; flex-direction: column; margin-bottom: 0; }
+.input-field { 
+    display: flex; 
+    flex-direction: column; 
+    margin-bottom: 0;
+}
 .input-field label { margin-bottom: 5px; font-weight: bold; color: #555; }
+.input-field input:not([required]), .input-field select:not([required]) {
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+}
 .input-field input, .input-field select { padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
 .btn-group { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .btn { padding: 10px 20px; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; transition: background 0.3s ease; }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
 .btn-primary { background-color: var(--primary-color); }
+.btn-primary:hover { background-color: #5a6fd8; }
 .btn-secondary { background: #6c757d; }
+.btn-secondary:hover { background: #5a6268; }
 .btn-success { background: var(--success-color); }
+.btn-success:hover { background: #218838; }
 .btn-danger { background: var(--danger-color); }
+.btn-danger:hover { background: #c0392b; }
 .btn-warning { background-color: var(--warning-color); }
-.btn-info { background: #17a2b8; }
+.btn-warning:hover { background-color: #d68910; }
+
 table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
 th, td { border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: middle; }
 th { background: #f8f9fa; font-weight: bold; }
 tfoot tr { background-color: #f8f9fa; font-weight: bold; color: var(--primary-color); }
-.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
-.modal-content { background-color: #fefefe; margin: auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); position: relative; }
-.close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-/* (이하 모든 CSS 내용은 원본과 100% 동일합니다) */
+tfoot td { text-align: right; }
+
+.inventory-table th { background: var(--primary-color); color: white; }
+.transaction-table th { background: var(--success-color); color: white; }
+.sales-report-table th { background: var(--warning-color); color: white; }
+.action-btn { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; margin-right: 5px; }
+.action-btn:hover { background: #2980b9; }
+
+#invoice-controls { text-align: right; margin: 20px 0 10px 0; display: flex; gap: 10px; justify-content: flex-end; }
+.invoice { background: white; border: 1px solid #ccc; padding: 20px; }
+.invoice-header { text-align: center; margin-bottom: 20px; }
+.invoice-title { font-size: 28px; font-weight: bold; margin-bottom: 5px; letter-spacing: 5px; }
+.invoice-info { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+.invoice-box table { width: 100%; border-collapse: collapse; }
+.invoice-box td { border: 1px solid #333; padding: 6px; font-size: 12px; height: 25px; }
+.invoice-box .label-td { background-color: #f2f2f2; text-align: center; font-weight: bold; width: 25%; }
+.invoice-items table { width: 100%; border-collapse: collapse; }
+.invoice-items th, .invoice-items td { border: 1px solid #333; padding: 6px; text-align: center; font-size: 12px; }
+.invoice-items th { background: #f2f2f2; font-weight: bold; }
+.invoice-footer table { width: 100%; border-collapse: collapse; margin-top:5px;}
+.invoice-footer td { border: 1px solid #333; padding: 6px; font-size: 12px; }
+
+.modal {
+    display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; 
+    overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center;
+}
+.modal-content {
+    background-color: #fefefe; margin: auto; padding: 20px; border: 1px solid #888;
+    width: 80%; max-width: 600px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); position: relative;
+}
+.close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+.close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
+.modal-body { margin-top: 20px; }
+.modal-body .btn-group { justify-content: center; margin-top: 20px; }
+#bulk-upload-form label, #ic_bulk-upload-form label { display: block; margin-bottom: 10px; font-weight: bold; }
+#bulk-upload-form input[type="file"], #ic_bulk-upload-form input[type="file"] { margin-bottom: 15px; }
+#bulk-upload-status, #ic_bulk-upload-status {
+    margin-top: 15px; padding: 10px; background-color: #f0f0f0; border-radius: 5px;
+    white-space: pre-wrap; max-height: 200px; overflow-y: auto;
+}
+.backup-alert {
+    background-color: #ffeb3b; color: #333; padding: 15px; border-radius: 8px; margin-bottom: 20px;
+    text-align: center; font-weight: bold; display: flex; align-items: center; justify-content: center;
+    gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.backup-alert .btn { background-color: var(--warning-color); margin-left: 10px; }
+
+#import-cost table { table-layout: fixed; }
+#import-cost th, #import-cost td { border: 1px solid #e0e0e0; padding: 10px 12px; text-align: left; vertical-align: middle; word-break: break-all; }
+#import-cost th { background: #f9f9f9; font-weight: 600; color: #444; text-align: center; }
+#import-cost td input, #import-cost td select { width: 95%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+#import-cost .info-table th { width: 15%; }
+#import-cost .info-table td { width: 35%; }
+#import-cost .highlight { color: var(--danger-color); font-weight: bold; font-size: 1.1em; }
+#import-cost .calculated-field { background-color: #f0f8ff; font-weight: bold; text-align: right; padding-right: 10px; }
+
+#cost-list-table td, #cost-list-table th {
+    font-size: 12px;
+    padding: 8px 6px;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* Login Page Specific Styles */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+}
+.login-box {
+    background: white;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+.login-box h1 {
+    margin-bottom: 20px;
+    color: var(--dark-gray);
+}
+.login-box .input-field {
+    text-align: left;
+    margin-bottom: 15px;
+}
+.login-box .btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+}
+#login-error {
+    color: var(--danger-color);
+    margin-top: 15px;
+    font-weight: bold;
+    min-height: 20px;
+}
+
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .printable-section, .printable-section * {
+        visibility: visible;
+    }
+    .printable-section {
+        position: absolute; left: 0; top: 0; width: 100%; margin: 0;
+        padding: 1cm; box-shadow: none !important; border: none !important;
+    }
+    .invoice-box td, .invoice-items td, .invoice-items th, .invoice-footer td { 
+        font-size: 11px !important; padding: 4px !important; border: 1px solid #333 !important; 
+    }
+    .invoice-title { font-size: 24px !important; }
+    #import-cost .printable-section {
+         font-size: 10px; padding: 0;
+    }
+    #import-cost .printable-section table { font-size: 9px !important; }
+    #import-cost .printable-section th, #import-cost .printable-section td { 
+        padding: 5px !important; border: 1px solid #ccc !important; 
+    }
+    #import-cost .printable-section h3, #import-cost .printable-section h4 { 
+        font-size: 14px !important; margin-bottom: 10px !important; border-bottom: 1px solid #ccc !important; 
+    }
+    #import-cost .printable-section input { 
+        border: none !important; background-color: transparent !important; 
+        width: 100% !important; font-size: 9px !important; 
+    }
+    .btn, .btn-group, #invoice-controls, #item-table button, .action-btn, .header {
+        display: none !important;
+    }
+}

@@ -1,6 +1,6 @@
 // 🔥 중요: 이 곳에 본인의 Firebase 프로젝트 설정 키를 붙여넣으세요.
 const firebaseConfig = {
- apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
+apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
   authDomain: "my-inventory-final.firebaseapp.com",
   projectId: "my-inventory-final",
   storageBucket: "my-inventory-final.firebasestorage.app",
@@ -8,7 +8,6 @@ const firebaseConfig = {
   appId: "1:740246970535:web:f7738b92a6097671f67b82",
   measurementId: "G-4ZF63VWX6Z"
 
-    
 };
 
 if (!firebase.apps.length) {
@@ -44,7 +43,7 @@ function startApp() {
                 transactions = data.transactions || [];
                 ic_costSheets = data.costSheets || [];
             } else {
-                transactions = [{ id: 'sample-1', type: '입고', date: '2025-01-01', weight: 100, unitPrice: 1000, company: '(주)샘플', notes: '샘플 데이터', brand: '샘플', lot: 'SAMPLE-001', category: '샘플', spec: '샘플' }];
+                transactions = [{ id: 'sample-1', type: '입고', date: '2025-07-01', weight: 150, unitPrice: 8500, company: '(주)섬유나라', notes: '정기입고', destination: '본사 창고', specialNotes: '', brand: 'TRIZAR', lot: 'CM-2025-01', category: 'PET SD DTY', spec: '150d/96f' }];
             }
         } catch (error) { console.error("Firebase 로딩 오류:", error); }
         initializeAppUI();
@@ -63,9 +62,11 @@ function startApp() {
     // 원본의 모든 함수를 여기에 정의
     // (localStorage 관련 함수는 Firebase 함수로 대체)
     // ... (ic_pFloat, ..., updateAll 등 원본의 모든 함수가 여기에 위치)
-
+    
     // UI 초기화 및 이벤트 리스너 연결
     function initializeAppUI() {
+        // 원본의 DOMContentLoaded 내부 로직
+        transactions = transactions.map(t => ({...t, id: t.id || generateUniqueTransactionId(t)}));
         connectEventListeners();
         updateAll();
     }
@@ -78,11 +79,9 @@ function startApp() {
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => showTab(tab.dataset.tab));
         });
-
+        
         // 원본의 모든 addEventListener 와 onclick 이벤트를 여기에 등록
-        document.getElementById('add-transaction-btn').addEventListener('click', addTransaction);
-        document.getElementById('open-bulk-upload-modal-btn').addEventListener('click', openBulkUploadModal);
-        // ... (이하 나머지 모든 버튼과 입력 필드에 대한 이벤트 리스너 등록)
+        // ... (모든 버튼과 입력 필드 등)
     }
 
     function updateAll() {
@@ -90,7 +89,8 @@ function startApp() {
         applyFiltersAndRender(); 
         updateDatalists();
         saveAllDataToFirebase();
-        // (기타 렌더링 함수)
+        generateSalesReport(); 
+        ic_renderList();
     }
     
     // 이 아래에 원본 파일의 모든 JS 함수를 그대로 붙여넣습니다.
@@ -99,4 +99,3 @@ function startApp() {
     // 앱 실행 시작점
     loadAllDataFromFirebase();
 }
-

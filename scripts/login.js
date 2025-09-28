@@ -8,6 +8,7 @@ apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
   messagingSenderId: "740246970535",
   appId: "1:740246970535:web:f7738b92a6097671f67b82",
   measurementId: "G-4ZF63VWX6Z"
+
 };
 // ********************************************
 
@@ -47,7 +48,8 @@ loginForm.addEventListener('submit', (e) => {
             console.error('로그인 실패:', error);
             switch (error.code) {
                 case 'auth/user-not-found':
-                    loginError.textContent = '등록되지 않은 이메일입니다.';
+                case 'auth/invalid-credential':
+                    loginError.textContent = '이메일 또는 비밀번호가 잘못되었습니다.';
                     break;
                 case 'auth/wrong-password':
                     loginError.textContent = '비밀번호가 틀렸습니다.';

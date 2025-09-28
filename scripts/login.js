@@ -1,4 +1,5 @@
-// 🔥 중요: 이 곳에 본인의 Firebase 프로젝트 설정 키를 붙여넣으세요.
+// ************* 여길 채워주세요! *************
+// Firebase 콘솔에서 확인한 내 프로젝트의 설정 정보를 붙여넣으세요.
 const firebaseConfig = {
 apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
   authDomain: "my-inventory-final.firebaseapp.com",
@@ -7,38 +8,55 @@ apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
   messagingSenderId: "740246970535",
   appId: "1:740246970535:web:f7738b92a6097671f67b82",
   measurementId: "G-4ZF63VWX6Z"
-  
 };
+// ********************************************
 
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+// Firebase 앱 초기화
+firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
-document.addEventListener('DOMContentLoaded', () => {
-    const loginButton = document.getElementById('loginButton');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    const errorElement = document.getElementById('login-error');
+const loginForm = document.getElementById('login-form');
+const emailInput = document.getElementById('email');
+const passwordInput = document.getElementById('password');
+const loginError = document.getElementById('login-error');
 
-    loginButton.addEventListener('click', () => {
-      const email = emailInput.value;
-      const password = passwordInput.value;
-      if(errorElement) errorElement.textContent = '';
-      if (!email || !password) {
-          if(errorElement) errorElement.textContent = '이메일과 비밀번호를 모두 입력하세요.';
-          return;
-      }
-      auth.signInWithEmailAndPassword(email, password)
-        .then(() => { window.location.href = 'index.html'; })
+// 로그인 상태 감지: 이미 로그인 되어있으면 메인 페이지로 이동
+auth.onAuthStateChanged(user => {
+    if (user) {
+        window.location.href = 'index.html';
+    }
+});
+
+// 로그인 폼 제출 이벤트 처리
+loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    
+    const email = emailInput.value;
+    const password = passwordInput.value;
+    
+    loginError.textContent = ''; // 이전 오류 메시지 초기화
+
+    auth.signInWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+            // 로그인 성공
+            console.log('로그인 성공:', userCredential.user);
+            window.location.href = 'index.html';
+        })
         .catch((error) => {
-          if(errorElement) {
-            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                errorElement.textContent = '이메일 또는 비밀번호가 잘못되었습니다.';
-            } else {
-                errorElement.textContent = '로그인 중 오류가 발생했습니다.';
+            // 로그인 실패
+            console.error('로그인 실패:', error);
+            switch (error.code) {
+                case 'auth/user-not-found':
+                    loginError.textContent = '등록되지 않은 이메일입니다.';
+                    break;
+                case 'auth/wrong-password':
+                    loginError.textContent = '비밀번호가 틀렸습니다.';
+                    break;
+                case 'auth/invalid-email':
+                    loginError.textContent = '유효하지 않은 이메일 형식입니다.';
+                    break;
+                default:
+                    loginError.textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
             }
-          }
         });
-    });
 });

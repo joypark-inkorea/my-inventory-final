@@ -21,7 +21,7 @@
             <div class="tab" onclick="showTab('import-cost')">수입원가 정산</div>
             <div class="tab" onclick="showTab('invoice')">거래명세표</div>
             <div class="tab" onclick="showTab('sales-report')">매출 보고서</div>
-            </div>
+        </div>
 
         <div id="transaction" class="tab-content active">
             <div class="section">
@@ -125,7 +125,7 @@
         </div>
 
         <div id="import-cost" class="tab-content">
-            <div class="section printable-section">
+             <div class="section printable-section">
                 <h3 id="ic-form-title">수입 정산 등록</h3>
                 <form id="ic-cost-form" onsubmit="return false;">
                     <h4>1. 기본 선적 정보</h4>
@@ -279,8 +279,6 @@
             </div>
         </div>
 
-        <div id="inventory-edit-section" style="display:none;" class="section">
-            </div>
     </div>
 
     <div id="bulkUploadModal" class="modal">
@@ -329,7 +327,7 @@
             </div>
         </div>
     </div>
-
+    
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
@@ -337,5 +335,3 @@
     <script src="scripts/app.js"></script>
 </body>
 </html>
-
-

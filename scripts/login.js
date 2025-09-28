@@ -7,7 +7,7 @@ apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
   messagingSenderId: "740246970535",
   appId: "1:740246970535:web:f7738b92a6097671f67b82",
   measurementId: "G-4ZF63VWX6Z"
-
+  
 };
 
 if (!firebase.apps.length) {

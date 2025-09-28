@@ -32,6 +32,7 @@
                 <div class="tab" data-tab="sales-report">매출 보고서</div>
                 <div class="tab" data-tab="backup">데이터 백업/복원</div>
             </div>
+
             <div id="transaction" class="tab-content active">
                 <div class="section">
                     <h3 id="transaction-form-title">입출고 등록</h3>
@@ -51,13 +52,60 @@
                         <div class="input-field"><label>특이사항</label><input type="text" id="transaction-special-notes"></div>
                     </div>
                     <div class="btn-group" id="transaction-form-buttons">
-                        <button id="add-transaction-btn" class="btn btn-primary">입출고 등록</button>
-                        <button id="open-bulk-upload-modal-btn" class="btn btn-warning">대량 입출고 등록</button>
+                        <button class="btn btn-primary">입출고 등록</button>
+                        <button class="btn btn-warning">대량 입출고 등록</button>
                     </div>
                 </div>
+                 <div class="section filter-section">
+                    <h3>입출고 내역 필터</h3>
+                    <div class="filter-group">
+                        <select id="filter-tran-type"><option value="">거래구분 (전체)</option><option value="입고">입고</option><option value="출고">출고</option></select>
+                        <input type="month" id="filter-tran-month">
+                        <input type="text" id="filter-tran-brand" placeholder="브랜드 검색">
+                        <input type="text" id="filter-tran-category" placeholder="품목 구분 검색">
+                        <input type="text" id="filter-tran-spec" placeholder="스펙 검색">
+                        <input type="text" id="filter-tran-lot" placeholder="LOT 검색">
+                        <input type="text" id="filter-tran-company" placeholder="업체 검색">
+                    </div>
+                     <button class="btn btn-secondary">필터 초기화</button>
                 </div>
-        </div>
+                <div class="section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>입출고 내역</h3>
+                        <div class="btn-group">
+                            <button class="btn btn-warning">✏️ 선택 수정</button>
+                            <button class="btn btn-danger">🗑️ 선택 삭제</button>
+                            <button class="btn btn-success">📊 CSV 내보내기</button>
+                        </div>
+                    </div>
+                    <table class="transaction-table">
+                        <thead>
+                            <tr>
+                                 <th><input type="checkbox" id="select-all-transactions"></th>
+                                <th>거래구분</th><th>날짜</th><th>브랜드</th><th>품목구분</th><th>스펙</th><th>LOT</th><th>중량(kg)</th><th>단가(원/kg)</th><th>금액(원)</th><th>기타 비용(원)</th><th>업체</th><th>비고</th><th>도착지</th><th>특이사항</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transaction-tbody"></tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="7" style="text-align:center;">합계</td>
+                                <td id="total-tran-weight" style="text-align:left;"></td>
+                                <td></td>
+                                <td id="total-tran-amount" style="text-align:left;"></td>
+                                <td id="total-tran-other-costs" style="text-align:left;"></td>
+                                <td colspan="4"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div id="inventory" class="tab-content">
+                </div>
+
+            </div>
     </div>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>

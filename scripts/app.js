@@ -1,6 +1,5 @@
 // ************* 중요!! *************
 // Firebase 콘솔에서 확인한 내 프로젝트의 설정 정보를 여기에 붙여넣으세요.
-// login.js에 있는 것과 동일해야 합니다.
 const firebaseConfig = {
   apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
   authDomain: "my-inventory-final.firebaseapp.com",
@@ -9,6 +8,7 @@ const firebaseConfig = {
   messagingSenderId: "740246970535",
   appId: "1:740246970535:web:f7738b92a6097671f67b82",
   measurementId: "G-4ZF63VWX6Z"
+  
 };
 // **********************************
 
@@ -27,6 +27,7 @@ let transactions = [];
 let ic_costSheets = [];
 let editingTransactionId = null;
 let ic_editingId = null;
+let currentBackupFile = null;
 
 // ================== 1. 인증 및 앱 초기화 ==================
 
@@ -264,9 +265,94 @@ async function ic_deleteSelectedSheets() {
     }
 }
 
-// ================== 3. UI 및 비즈니스 로직 (원본 파일의 모든 함수 포함) ==================
 
-// 🔴 이전에 누락되었던 함수!
+// ================== 3. 백업/복원 기능 추가 ==================
+
+function backupDataToJson() {
+    const backupData = { 
+        transactions: transactions, 
+        importCostSheets: ic_costSheets 
+    };
+    const jsonString = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `grutex_firebase_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    link.remove();
+    alert('데이터 백업이 완료되었습니다.');
+}
+
+function loadBackupFile(event) {
+    const file = event.target.files[0];
+    if (file) {
+        currentBackupFile = file;
+        document.getElementById('backup-status').innerText = `선택된 파일: ${file.name}`;
+        document.getElementById('restore-button').disabled = false;
+    } else {
+        currentBackupFile = null;
+        document.getElementById('backup-status').innerText = '';
+        document.getElementById('restore-button').disabled = true;
+    }
+}
+
+async function restoreDataFromJson() {
+    if (!currentBackupFile) {
+        return alert('먼저 복원할 백업 파일을 선택해주세요.');
+    }
+
+    const confirmation = prompt(
+        "경고: 이 작업은 클라우드의 모든 데이터를 덮어씁니다. 다른 사용자의 작업 내용이 사라질 수 있습니다.\n\n계속하려면 '복원합니다' 라고 정확히 입력해주세요."
+    );
+
+    if (confirmation !== '복원합니다') {
+        return alert('복원 작업이 취소되었습니다.');
+    }
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const parsedData = JSON.parse(e.target.result);
+            if (parsedData.transactions && parsedData.importCostSheets) {
+                alert('복원을 시작합니다. 데이터 양에 따라 시간이 걸릴 수 있습니다. 완료 메시지가 나타날 때까지 기다려주세요.');
+                
+                // 1. 기존 데이터 전체 삭제
+                const deletePromises = [
+                    ...transactions.map(doc => transactionsCollection.doc(doc.id).delete()),
+                    ...ic_costSheets.map(doc => importCostSheetsCollection.doc(doc.id).delete())
+                ];
+                await Promise.all(deletePromises);
+
+                // 2. 새 데이터 전체 추가
+                const addPromises = [
+                    ...parsedData.transactions.map(doc => transactionsCollection.add(doc)),
+                    ...parsedData.importCostSheets.map(doc => importCostSheetsCollection.add(doc))
+                ];
+                await Promise.all(addPromises);
+                
+                // 3. 데이터 다시 로드 및 UI 갱신
+                await loadAllDataFromFirebase();
+                
+                document.getElementById('backup-status').innerText = '데이터가 성공적으로 복원되었습니다.';
+                alert('데이터 복원이 완료되었습니다!');
+            } else {
+                alert('선택된 파일이 유효한 백업 파일이 아닙니다.');
+            }
+        } catch (error) {
+            console.error("복원 중 오류 발생:", error);
+            alert('파일 처리 또는 데이터 복원 중 오류가 발생했습니다.');
+        } finally {
+            currentBackupFile = null; 
+            document.getElementById('backup-file').value = ''; 
+            document.getElementById('restore-button').disabled = true;
+        }
+    };
+    reader.readAsText(currentBackupFile);
+}
+
+
+// ================== 4. UI 및 비즈니스 로직 (원본 파일의 모든 함수 포함) ==================
+
 function updateDatalists() {
     const sets = { brand: new Set(), lot: new Set(), company: new Set() };
     transactions.forEach(t => {
@@ -284,7 +370,7 @@ function updateDatalists() {
 function updateAll() {
     recalculateInventory(); 
     applyFiltersAndRender(); 
-    updateDatalists(); // 이제 이 함수가 존재하므로 오류가 발생하지 않습니다.
+    updateDatalists();
     generateSalesReport(); 
 }
 
@@ -564,16 +650,11 @@ function downloadCSV(csvContent, filename) {
 }
 
 function exportInventoryCSV() {
-    const headers = ['브랜드', '품목구분', '스펙', 'LOT', '현재 수량(kg)'];
     const csvData = inventory.map(item => ({
-        브랜드: item.brand,
-        품목구분: item.category || '',
-        스펙: item.spec || '',
-        LOT: item.lot,
+        '브랜드': item.brand, '품목구분': item.category || '','스펙': item.spec || '','LOT': item.lot,
         '현재 수량(kg)': item.quantity.toFixed(2)
     }));
-    const csv = Papa.unparse(csvData);
-    downloadCSV(csv, '재고현황');
+    downloadCSV(Papa.unparse(csvData), '재고현황');
 }
 
 function exportTransactionCSV() {
@@ -582,8 +663,7 @@ function exportTransactionCSV() {
         '중량(kg)': t.weight, '단가(원/kg)': t.unitPrice, '금액(원)': t.weight * t.unitPrice, 
         '기타 비용(원)': t.otherCosts || 0, '업체': t.company, '비고': t.notes, '도착지': t.destination, '특이사항': t.specialNotes
     }));
-    const csv = Papa.unparse(csvData);
-    downloadCSV(csv, '입출고현황');
+    downloadCSV(Papa.unparse(csvData), '입출고현황');
 }
 
 function exportSalesReportCSV() {
@@ -591,16 +671,11 @@ function exportSalesReportCSV() {
     const headers = ['월', '업체', '브랜드', '품목 구분', '스펙', 'LOT', '중량(kg)', '매입 비용(원)', '기타 비용(원)', '총 비용(원)', '매출 금액(원)', '최종 마진(원)', '마진율(%)'];
     const data = Array.from(tbody.rows).map(row => {
         const cells = Array.from(row.cells);
-        return {
-            [headers[0]]: cells[0].innerText, [headers[1]]: cells[1].innerText, [headers[2]]: cells[2].innerText,
-            [headers[3]]: cells[3].innerText, [headers[4]]: cells[4].innerText, [headers[5]]: cells[5].innerText,
-            [headers[6]]: cells[6].innerText, [headers[7]]: cells[7].innerText, [headers[8]]: cells[8].innerText,
-            [headers[9]]: cells[9].innerText, [headers[10]]: cells[10].innerText, [headers[11]]: cells[11].innerText,
-            [headers[12]]: cells[12].innerText
-        };
+        let rowData = {};
+        headers.forEach((header, i) => { rowData[header] = cells[i].innerText; });
+        return rowData;
     });
-    const csv = Papa.unparse(data, { header: true });
-    downloadCSV(csv, '매출보고서');
+    downloadCSV(Papa.unparse(data, { header: true }), '매출보고서');
 }
 
 function generateInvoice() {
@@ -646,6 +721,7 @@ function saveInvoiceAsPDF() {
     });
 }
 
+// 🔴🔴🔴 매출 보고서 로직 수정 🔴🔴🔴
 function generateSalesReport() {
     const monthFilter = document.getElementById('filter-sales-month').value;
     const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
@@ -663,9 +739,16 @@ function generateSalesReport() {
     let totalWeight = 0, totalSalesAmount = 0, totalCostOfGoods = 0, totalOtherCosts = 0;
     
     outgoingTransactions.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
-        const costPrice = (transactions.find(it => 
-            it.type === '입고' && it.brand === t.brand && it.lot === t.lot
-        ) || { unitPrice: 0 }).unitPrice;
+        // 원본 파일의 정확한 원가 계산 로직으로 수정
+        const matchingInbound = transactions.filter(it => 
+            it.type === '입고' &&
+            it.brand.toLowerCase() === t.brand.toLowerCase() &&
+            it.lot.toLowerCase() === t.lot.toLowerCase() &&
+            (it.category || '').toLowerCase() === (t.category || '').toLowerCase() &&
+            (it.spec || '').toLowerCase() === (t.spec || '').toLowerCase()
+        ).sort((a,b) => new Date(b.date) - new Date(a.date)); // 최신 입고 건을 우선으로 찾기 위해 정렬
+
+        const costPrice = matchingInbound.length > 0 ? matchingInbound[0].unitPrice : 0;
         
         const salesAmount = t.weight * t.unitPrice;
         const costOfGoods = t.weight * costPrice;
@@ -707,7 +790,7 @@ function toggleAllCheckboxes(className, checked) {
     document.querySelectorAll(`.${className}`).forEach(checkbox => checkbox.checked = checked);
 }
 
-// ================== 수입원가 정산서 스크립트 (원본 HTML의 모든 ic_ 함수) ==================
+// ================== 수입원가 정산서 스크립트 (ic_ 함수) ==================
 function ic_formatInputForDisplay(input) {
     const value = ic_pFloat(input.value);
     if (!isNaN(value) && input.value.trim() !== '') {
@@ -884,21 +967,32 @@ function ic_exportListToCsv() {
             });
         });
     });
-    const csv = Papa.unparse(csvData);
-    downloadCSV(csv, `수입정산내역_${new Date().toISOString().slice(0,10)}`);
+    downloadCSV(Papa.unparse(csvData), `수입정산내역_${new Date().toISOString().slice(0,10)}`);
 }
 
 function ic_openBulkUploadModal() { document.getElementById('ic_bulkUploadModal').style.display = 'flex'; }
 function ic_closeBulkUploadModal() { document.getElementById('ic_bulkUploadModal').style.display = 'none'; }
+
+// 🔴🔴🔴 수입원가 CSV 템플릿 수정 🔴🔴🔴
 function ic_downloadBulkTemplate() {
-    const headers = [ "그룹ID*", "Shipper*", "ETD*(YYYY-MM-DD)", "적용환율*", "품목*", "LOT*", "수량*", "단가($)*" ];
-    downloadCSV(headers.join(','), '수입정산서_일괄등록_템플릿');
+    const headers = [
+        "그룹ID*", "Shipper*", "ETD*(YYYY-MM-DD)", "ETA(YYYY-MM-DD)", "적용환율*", "Terms", "Origin", "Method", "CBM", "포장",
+        "은행 송금수수료(원)", "관세율(%)", "관세(원)", "부가가치세(원)", "현지 내륙 총 비용(원)", "수입 총 비용(원)", "국내 내륙 운송비(원)",
+        "품목*", "LOT*", "수량*", "단위", "단가($)*"
+    ];
+    const exampleData = [
+        ["INV-001", "Shipper A", "2025-10-01", "2025-10-15", "1350.5", "FOB", "China", "Sea", "25", "Pallet", "35000", "8", "0", "0", "100000", "250000", "150000", "Item A-1", "LOT-A1", "1000", "kg", "10.5"],
+        ["INV-001", "Shipper A", "2025-10-01", "2025-10-15", "1350.5", "FOB", "China", "Sea", "25", "Pallet", "35000", "8", "0", "0", "100000", "250000", "150000", "Item A-2", "LOT-A2", "500", "kg", "12.0"],
+        ["INV-002", "Shipper B", "2025-10-05", "2025-10-20", "1355.0", "CIF", "Vietnam", "Air", "5", "Carton", "50000", "8", "0", "0", "0", "400000", "80000", "Item B-1", "LOT-B1", "200", "kg", "25.2"]
+    ];
+    const csvContent = [headers.join(','), ...exampleData.map(row => row.map(d => `"${String(d)}"`).join(','))].join('\n');
+    downloadCSV(csvContent, '수입정산서_일괄등록_템플릿');
 }
 
-function ic_processBulkUpload() { alert('대량 등록 기능은 Firestore에 맞게 수정이 필요합니다.'); }
+function ic_processBulkUpload() { alert('대량 등록 기능은 Firestore에 맞게 수정이 필요합니다. 이 기능은 현재 비활성화되어 있습니다.'); }
 
 
-// ================== 4. HTML onclick과 함수 연결 ==================
+// ================== 5. HTML onclick과 함수 연결 ==================
 window.showTab = showTab;
 window.toggleOtherCostsField = toggleOtherCostsField;
 window.addTransaction = () => processTransaction(false);
@@ -937,3 +1031,6 @@ window.ic_toggleAllListCheckboxes = ic_toggleAllListCheckboxes;
 window.ic_closeBulkUploadModal = ic_closeBulkUploadModal;
 window.ic_downloadBulkTemplate = ic_downloadBulkTemplate;
 window.ic_processBulkUpload = ic_processBulkUpload;
+window.backupDataToJson = backupDataToJson;
+window.restoreDataFromJson = restoreDataFromJson;
+window.loadBackupFile = loadBackupFile;

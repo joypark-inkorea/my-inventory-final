@@ -1020,7 +1020,7 @@ function ic_downloadBulkTemplate() {
     downloadCSV(csvContent, '수입정산서_일괄등록_템플릿');
 }
 
-// 🔴🔴🔴 수입원가 대량 등록 기능 전체 구현 🔴🔴🔴
+// 🔴🔴🔴 수입원가 대량 등록 기능 전체 구현 (단가 계산 로직 추가) 🔴🔴🔴
 function ic_processBulkUpload() {
     const fileInput = document.getElementById('ic_bulk-csv-file');
     const statusDiv = document.getElementById('ic_bulk-upload-status');
@@ -1062,12 +1062,12 @@ function ic_processBulkUpload() {
                 return;
             }
 
-            // 그룹ID 기준으로 데이터 재구성
+            // 1. 그룹ID 기준으로 데이터 재구성
             const sheetsByGroup = data.reduce((acc, row) => {
                 const groupId = String(row['그룹ID*']).trim();
                 if (!acc[groupId]) {
                     acc[groupId] = {
-                        id: groupId, // Firestore 문서 ID로 그룹ID 사용
+                        id: groupId,
                         shipper: row['Shipper*'],
                         etd: row['ETD*(YYYY-MM-DD)'],
                         eta: row['ETA(YYYY-MM-DD)'] || '',
@@ -1098,7 +1098,29 @@ function ic_processBulkUpload() {
                 return acc;
             }, {});
 
+            // ⭐️⭐️⭐️ 중요: 단가 계산 로직 추가 ⭐️⭐️⭐️
+            // 2. 그룹별로 최종 단가 계산
+            Object.values(sheetsByGroup).forEach(sheet => {
+                // 총 품목 금액($) 계산
+                const totalInvoiceValue = sheet.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+
+                // 총 비용(KRW) 계산: '수입 총 비용' + '국내 내륙 운송비'가 가장 합리적인 총 비용으로 판단
+                const grandTotal = sheet.importTotalCost + sheet.localDeliveryFee;
+
+                // 각 품목에 대해 단가(unitCost) 계산 후 추가
+                sheet.items.forEach(item => {
+                    if (totalInvoiceValue > 0 && item.quantity > 0) {
+                        const itemValueRatio = (item.quantity * item.unitPrice) / totalInvoiceValue; // 현재 품목이 전체에서 차지하는 금액 비율
+                        item.unitCost = (grandTotal * itemValueRatio) / item.quantity;
+                    } else {
+                        item.unitCost = 0;
+                    }
+                });
+            });
+            // ⭐️⭐️⭐️ 계산 로직 끝 ⭐️⭐️⭐️
+
             try {
+                // 3. 계산된 데이터를 Firestore에 저장
                 const batch = db.batch();
                 const sheetArray = Object.values(sheetsByGroup);
 
@@ -1110,7 +1132,7 @@ function ic_processBulkUpload() {
                 await batch.commit();
                 
                 statusDiv.innerHTML = `<p class="success">${sheetArray.length}개의 정산서 그룹이 성공적으로 등록되었습니다!</p>`;
-                await loadAllDataFromFirebase(); // 데이터 전체 리로드
+                await loadAllDataFromFirebase();
                 setTimeout(ic_closeBulkUploadModal, 2000);
 
             } catch (error) {

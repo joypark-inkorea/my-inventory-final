@@ -31,11 +31,15 @@ let currentBackupFile = null;
 
 // ================== 0. 페이지 로딩 완료 후 실행 ==================
 document.addEventListener('DOMContentLoaded', () => {
+    // 수입원가 대량등록 모달의 파일 선택(input)과 등록 처리(button) 요소를 가져옵니다.
     const bulkCsvFileInput = document.getElementById('ic_bulk-csv-file');
     const bulkUploadProcessBtn = document.getElementById('ic_bulk-upload-process-btn');
 
+    // 두 요소가 모두 존재할 때만 이벤트 리스너를 추가합니다.
     if (bulkCsvFileInput && bulkUploadProcessBtn) {
+        // 파일 선택 시 이벤트 발생
         bulkCsvFileInput.addEventListener('change', () => {
+            // 선택된 파일이 있으면 '일괄 등록 처리' 버튼을 활성화하고, 없으면 비활성화합니다.
             if (bulkCsvFileInput.files.length > 0) {
                 bulkUploadProcessBtn.disabled = false;
             } else {
@@ -44,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
 
 // ================== 1. 인증 및 앱 초기화 ==================
 
@@ -296,8 +299,6 @@ function backupDataToJson() {
     link.href = URL.createObjectURL(blob);
     link.download = `grutex_firebase_backup_${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
-    link.remove();
-    alert('데이터 백업이 완료되었습니다.');
 }
 
 function loadBackupFile(event) {
@@ -658,13 +659,15 @@ function processBulkUpload() {
     });
 }
 
+// 🔴 CSV 다운로드 헬퍼 함수 (안정성 개선) 🔴
 function downloadCSV(csvContent, filename) {
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
     link.click();
-    link.remove();
+    document.body.removeChild(link);
 }
 
 function exportInventoryCSV() {
@@ -899,7 +902,7 @@ function ic_renderList() {
     const filtered = ic_costSheets.filter(sheet => 
         (!filterYear || (sheet.etd && sheet.etd.substring(0, 4).includes(filterYear))) &&
         sheet.shipper.toLowerCase().includes(filterShipper) &&
-        (!filterItem || sheet.items.some(item => item.name.toLowerCase().includes(filterItem))) &&
+        (!filterItem || sheet.items.some(item => (item.name || item.itemName).toLowerCase().includes(filterItem))) &&
         (!filterLot || sheet.items.some(item => item.lot.toLowerCase().includes(filterLot)))
     ).sort((a,b) => (b.etd || '').localeCompare(a.etd || ''));
 
@@ -911,9 +914,8 @@ function ic_renderList() {
                 row.innerHTML = `<td rowspan="${itemCount}" style="text-align:center;"><input type="checkbox" class="sheet-checkbox" value="${sheet.id}"></td>
                                  <td rowspan="${itemCount}">${sheet.eta || ''}</td> <td rowspan="${itemCount}">${sheet.shipper}</td>`;
             }
-            // 쉼표가 있는 숫자도 정상적으로 표시되도록 toLocaleString() 사용
-            row.innerHTML += `<td>${item.name}</td><td>${item.lot}</td><td>${(item.qty || 0).toLocaleString()} ${item.unit}</td>
-                             <td>$${(item.price || 0).toLocaleString()}</td><td>${sheet.terms}</td> <td>${sheet.origin}</td>
+            row.innerHTML += `<td>${item.name || item.itemName}</td><td>${item.lot}</td><td>${(item.qty || item.quantity || 0).toLocaleString()} ${item.unit}</td>
+                             <td>$${(item.price || item.unitPrice || 0).toLocaleString()}</td><td>${sheet.terms}</td> <td>${sheet.origin}</td>
                              <td>${sheet.method}</td><td>${sheet.cbm}</td> <td>${sheet.packing || sheet.packaging || ''}</td>
                              <td>${sheet.tariffRate || sheet.customsRate || 0}%</td><td>${ic_pFloat(sheet.exchangeRate).toLocaleString()}</td>
                              <td class="highlight">₩${Math.round(item.unitCost || 0).toLocaleString()}</td>`;
@@ -936,12 +938,12 @@ function ic_editSelectedSheet() {
     document.getElementById('form-etd').value = sheet.etd || '';
     document.getElementById('form-eta').value = sheet.eta || '';
     document.getElementById('form-cbm').value = sheet.cbm || '';
-    document.getElementById('form-packing').value = sheet.packing || '';
+    document.getElementById('form-packing').value = sheet.packing || sheet.packaging || '';
     document.getElementById('form-exchange-rate').value = sheet.exchangeRate || '';
     document.getElementById('form-shipping-fee').value = sheet.shippingFee || '';
-    document.getElementById('form-tariff-rate').value = sheet.tariffRate || '';
-    document.getElementById('form-tariff-amount').value = sheet.tariffAmount || '';
-    document.getElementById('form-vat-amount').value = sheet.vatAmount || '';
+    document.getElementById('form-tariff-rate').value = sheet.tariffRate || sheet.customsRate || '';
+    document.getElementById('form-tariff-amount').value = sheet.tariffAmount || sheet.customsDuty || '';
+    document.getElementById('form-vat-amount').value = sheet.vatAmount || sheet.vat || '';
     document.getElementById('form-forwarder-fee1').value = sheet.forwarderFee1 || '';
     document.getElementById('form-forwarder-fee2').value = sheet.forwarderFee2 || '';
     document.getElementById('form-forwarder-fee3').value = sheet.forwarderFee3 || '';
@@ -977,19 +979,20 @@ function ic_exportListToCsv() {
     ic_costSheets.forEach(sheet => {
         sheet.items.forEach(item => {
             csvData.push({
-                "ETA": sheet.eta, "Shipper": sheet.shipper, "품목": item.name, "LOT": item.lot,
-                "수량 (단위)": `${item.qty} ${item.unit}`, "단가($)": item.price, "Terms": sheet.terms, "C/O": sheet.origin,
-                "Method": sheet.method, "CBM": sheet.cbm, "포장": sheet.packing, "관세(%)": sheet.tariffRate,
-                "환율": sheet.exchangeRate, "수입원가(원)": Math.round(item.unitCost)
+                "ETA": sheet.eta, "Shipper": sheet.shipper, "품목": item.name || item.itemName, "LOT": item.lot,
+                "수량 (단위)": `${item.qty || item.quantity} ${item.unit}`, "단가($)": item.price || item.unitPrice, "Terms": sheet.terms, "C/O": sheet.origin,
+                "Method": sheet.method, "CBM": sheet.cbm, "포장": sheet.packing || sheet.packaging, "관세(%)": sheet.tariffRate || sheet.customsRate,
+                "환율": sheet.exchangeRate, "수입원가(원)": Math.round(item.unitCost || 0)
             });
         });
     });
     downloadCSV(Papa.unparse(csvData), `수입정산내역_${new Date().toISOString().slice(0,10)}`);
 }
 
-// 🔴 수입원가 모달 제어 함수 수정
+// 🔴 수입원가 모달 제어 함수 수정 (ID 값 오류 수정) 🔴
 function ic_openBulkUploadModal() {
-    const modal = document.getElementById('ic_bulk-upload-modal');
+    // 기존 코드의 'ic_bulkUploadModal' ID를 사용하도록 수정
+    const modal = document.getElementById('ic_bulkUploadModal'); 
     const uploadBtn = document.getElementById('ic_bulk-upload-process-btn');
     const form = document.getElementById('ic_bulk-upload-form');
     const statusDiv = document.getElementById('ic_bulk-upload-status');
@@ -1001,22 +1004,20 @@ function ic_openBulkUploadModal() {
 }
 
 function ic_closeBulkUploadModal() {
-    const modal = document.getElementById('ic_bulk-upload-modal');
+    const modal = document.getElementById('ic_bulkUploadModal');
     if (modal) modal.style.display = 'none';
 }
 
 
-// 🔴 수입원가 CSV 템플릿 다운로드 함수 수정
+// 🔴 수입원가 CSV 템플릿 다운로드 함수 수정 (단순화) 🔴
 function ic_downloadBulkTemplate() {
     const headers = [
         "그룹ID*", "Shipper*", "ETD*(YYYY-MM-DD)", "ETA(YYYY-MM-DD)", "적용환율*", "Terms", "Origin", "Method", "CBM", "포장",
         "은행 송금수수료(원)", "관세율(%)", "관세(원)", "부가가치세(원)", "현지 내륙 총 비용(원)", "수입 총 비용(원)", "국내 내륙 운송비(원)",
         "품목*", "LOT*", "수량*", "단위", "단가($)*"
     ];
-    // BOM 추가하여 Excel에서 한글 깨짐 방지
-    let csvContent = "\uFEFF";
-    csvContent += headers.join(',') + '\r\n';
-    downloadCSV(csvContent.slice(1), '수입정산서_일괄등록_템플릿'); // downloadCSV 함수가 BOM을 또 추가하므로 제거 후 전달
+    const csvContent = headers.join(',') + '\r\n';
+    downloadCSV(csvContent, '수입정산서_일괄등록_템플릿');
 }
 
 // 🔴🔴🔴 수입원가 대량 등록 기능 전체 구현 🔴🔴🔴

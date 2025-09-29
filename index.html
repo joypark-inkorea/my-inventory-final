@@ -337,7 +337,7 @@
                     <label for="ic_bulk-csv-file">CSV 파일 선택:</label>
                     <input type="file" id="ic_bulk-csv-file" accept=".csv">
                     <div class="btn-group" style="justify-content: flex-end;">
-                         <button type="button" class="btn btn-primary" onclick="ic_processBulkUpload()">일괄 등록 처리</button>
+                      <button type="button" class="btn btn-primary" id="ic_bulk-upload-process-btn" onclick="ic_processBulkUpload()">일괄 등록 처리</button>
                          <button type="button" class="btn btn-secondary" onclick="ic_closeBulkUploadModal()">닫기</button>
                     </div>
                 </form>
@@ -353,6 +353,8 @@
     <script src="scripts/app.js"></script>
 </body>
 </html>
+
+
 
 
 

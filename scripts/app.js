@@ -29,6 +29,23 @@ let editingTransactionId = null;
 let ic_editingId = null;
 let currentBackupFile = null;
 
+// ================== 0. 페이지 로딩 완료 후 실행 ==================
+document.addEventListener('DOMContentLoaded', () => {
+    const bulkCsvFileInput = document.getElementById('ic_bulk-csv-file');
+    const bulkUploadProcessBtn = document.getElementById('ic_bulk-upload-process-btn');
+
+    if (bulkCsvFileInput && bulkUploadProcessBtn) {
+        bulkCsvFileInput.addEventListener('change', () => {
+            if (bulkCsvFileInput.files.length > 0) {
+                bulkUploadProcessBtn.disabled = false;
+            } else {
+                bulkUploadProcessBtn.disabled = true;
+            }
+        });
+    }
+});
+
+
 // ================== 1. 인증 및 앱 초기화 ==================
 
 auth.onAuthStateChanged(user => {
@@ -647,6 +664,7 @@ function downloadCSV(csvContent, filename) {
     link.href = URL.createObjectURL(blob);
     link.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
+    link.remove();
 }
 
 function exportInventoryCSV() {
@@ -721,7 +739,6 @@ function saveInvoiceAsPDF() {
     });
 }
 
-// 🔴🔴🔴 매출 보고서 로직 수정 🔴🔴🔴
 function generateSalesReport() {
     const monthFilter = document.getElementById('filter-sales-month').value;
     const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
@@ -739,14 +756,13 @@ function generateSalesReport() {
     let totalWeight = 0, totalSalesAmount = 0, totalCostOfGoods = 0, totalOtherCosts = 0;
     
     outgoingTransactions.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
-        // 원본 파일의 정확한 원가 계산 로직으로 수정
         const matchingInbound = transactions.filter(it => 
             it.type === '입고' &&
             it.brand.toLowerCase() === t.brand.toLowerCase() &&
             it.lot.toLowerCase() === t.lot.toLowerCase() &&
             (it.category || '').toLowerCase() === (t.category || '').toLowerCase() &&
             (it.spec || '').toLowerCase() === (t.spec || '').toLowerCase()
-        ).sort((a,b) => new Date(b.date) - new Date(a.date)); // 최신 입고 건을 우선으로 찾기 위해 정렬
+        ).sort((a,b) => new Date(b.date) - new Date(a.date));
 
         const costPrice = matchingInbound.length > 0 ? matchingInbound[0].unitPrice : 0;
         
@@ -895,11 +911,12 @@ function ic_renderList() {
                 row.innerHTML = `<td rowspan="${itemCount}" style="text-align:center;"><input type="checkbox" class="sheet-checkbox" value="${sheet.id}"></td>
                                  <td rowspan="${itemCount}">${sheet.eta || ''}</td> <td rowspan="${itemCount}">${sheet.shipper}</td>`;
             }
-            row.innerHTML += `<td>${item.name}</td><td>${item.lot}</td><td>${item.qty.toLocaleString()} ${item.unit}</td>
-                             <td>$${item.price.toLocaleString()}</td><td>${sheet.terms}</td> <td>${sheet.origin}</td>
-                             <td>${sheet.method}</td><td>${sheet.cbm}</td> <td>${sheet.packing}</td>
-                             <td>${sheet.tariffRate}%</td><td>${ic_pFloat(sheet.exchangeRate).toLocaleString()}</td>
-                             <td class="highlight">₩${Math.round(item.unitCost).toLocaleString()}</td>`;
+            // 쉼표가 있는 숫자도 정상적으로 표시되도록 toLocaleString() 사용
+            row.innerHTML += `<td>${item.name}</td><td>${item.lot}</td><td>${(item.qty || 0).toLocaleString()} ${item.unit}</td>
+                             <td>$${(item.price || 0).toLocaleString()}</td><td>${sheet.terms}</td> <td>${sheet.origin}</td>
+                             <td>${sheet.method}</td><td>${sheet.cbm}</td> <td>${sheet.packing || sheet.packaging || ''}</td>
+                             <td>${sheet.tariffRate || sheet.customsRate || 0}%</td><td>${ic_pFloat(sheet.exchangeRate).toLocaleString()}</td>
+                             <td class="highlight">₩${Math.round(item.unitCost || 0).toLocaleString()}</td>`;
         });
     });
 }
@@ -934,11 +951,11 @@ function ic_editSelectedSheet() {
     sheet.items.forEach(item => {
         const newRow = itemTbody.insertRow();
         newRow.innerHTML = `
-            <td><input type="text" class="item-name" value="${item.name}" oninput="ic_calculateAll()"></td>
+            <td><input type="text" class="item-name" value="${item.name || item.itemName}" oninput="ic_calculateAll()"></td>
             <td><input type="text" class="item-lot" value="${item.lot}" oninput="ic_calculateAll()"></td>
-            <td><input type="text" class="item-qty" value="${item.qty.toLocaleString()}" oninput="ic_calculateAll()" onblur="ic_formatInputForDisplay(this)"></td>
+            <td><input type="text" class="item-qty" value="${(item.qty || item.quantity || 0).toLocaleString()}" oninput="ic_calculateAll()" onblur="ic_formatInputForDisplay(this)"></td>
             <td><input type="text" class="item-unit" value="${item.unit}" oninput="ic_calculateAll()"></td>
-            <td><input type="text" class="item-price" value="${item.price.toLocaleString()}" oninput="ic_calculateAll()" onblur="ic_formatInputForDisplay(this)"></td>
+            <td><input type="text" class="item-price" value="${(item.price || item.unitPrice || 0).toLocaleString()}" oninput="ic_calculateAll()" onblur="ic_formatInputForDisplay(this)"></td>
             <td><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); ic_calculateAll();">-</button></td>`;
     });
 
@@ -970,26 +987,141 @@ function ic_exportListToCsv() {
     downloadCSV(Papa.unparse(csvData), `수입정산내역_${new Date().toISOString().slice(0,10)}`);
 }
 
-function ic_openBulkUploadModal() { document.getElementById('ic_bulkUploadModal').style.display = 'flex'; }
-function ic_closeBulkUploadModal() { document.getElementById('ic_bulkUploadModal').style.display = 'none'; }
+// 🔴 수입원가 모달 제어 함수 수정
+function ic_openBulkUploadModal() {
+    const modal = document.getElementById('ic_bulk-upload-modal');
+    const uploadBtn = document.getElementById('ic_bulk-upload-process-btn');
+    const form = document.getElementById('ic_bulk-upload-form');
+    const statusDiv = document.getElementById('ic_bulk-upload-status');
 
-// 🔴🔴🔴 수입원가 CSV 템플릿 수정 🔴🔴🔴
+    if (modal) modal.style.display = 'flex';
+    if (form) form.reset();
+    if (uploadBtn) uploadBtn.disabled = true;
+    if (statusDiv) statusDiv.innerHTML = '';
+}
+
+function ic_closeBulkUploadModal() {
+    const modal = document.getElementById('ic_bulk-upload-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+
+// 🔴 수입원가 CSV 템플릿 다운로드 함수 수정
 function ic_downloadBulkTemplate() {
     const headers = [
         "그룹ID*", "Shipper*", "ETD*(YYYY-MM-DD)", "ETA(YYYY-MM-DD)", "적용환율*", "Terms", "Origin", "Method", "CBM", "포장",
         "은행 송금수수료(원)", "관세율(%)", "관세(원)", "부가가치세(원)", "현지 내륙 총 비용(원)", "수입 총 비용(원)", "국내 내륙 운송비(원)",
         "품목*", "LOT*", "수량*", "단위", "단가($)*"
     ];
-    const exampleData = [
-        ["INV-001", "Shipper A", "2025-10-01", "2025-10-15", "1350.5", "FOB", "China", "Sea", "25", "Pallet", "35000", "8", "0", "0", "100000", "250000", "150000", "Item A-1", "LOT-A1", "1000", "kg", "10.5"],
-        ["INV-001", "Shipper A", "2025-10-01", "2025-10-15", "1350.5", "FOB", "China", "Sea", "25", "Pallet", "35000", "8", "0", "0", "100000", "250000", "150000", "Item A-2", "LOT-A2", "500", "kg", "12.0"],
-        ["INV-002", "Shipper B", "2025-10-05", "2025-10-20", "1355.0", "CIF", "Vietnam", "Air", "5", "Carton", "50000", "8", "0", "0", "0", "400000", "80000", "Item B-1", "LOT-B1", "200", "kg", "25.2"]
-    ];
-    const csvContent = [headers.join(','), ...exampleData.map(row => row.map(d => `"${String(d)}"`).join(','))].join('\n');
-    downloadCSV(csvContent, '수입정산서_일괄등록_템플릿');
+    // BOM 추가하여 Excel에서 한글 깨짐 방지
+    let csvContent = "\uFEFF";
+    csvContent += headers.join(',') + '\r\n';
+    downloadCSV(csvContent.slice(1), '수입정산서_일괄등록_템플릿'); // downloadCSV 함수가 BOM을 또 추가하므로 제거 후 전달
 }
 
-function ic_processBulkUpload() { alert('대량 등록 기능은 Firestore에 맞게 수정이 필요합니다. 이 기능은 현재 비활성화되어 있습니다.'); }
+// 🔴🔴🔴 수입원가 대량 등록 기능 전체 구현 🔴🔴🔴
+function ic_processBulkUpload() {
+    const fileInput = document.getElementById('ic_bulk-csv-file');
+    const statusDiv = document.getElementById('ic_bulk-upload-status');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        statusDiv.innerHTML = `<p class="error">파일을 선택해주세요.</p>`;
+        return;
+    }
+
+    statusDiv.innerHTML = '<p>CSV 파일을 처리 중입니다...</p>';
+
+    // 숫자 파싱 헬퍼 함수 (쉼표, 공백 제거)
+    const parseNumber = (value) => {
+        if (typeof value !== 'string') return isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+        const cleanedValue = value.replace(/,/g, '').trim();
+        return cleanedValue === '' ? 0 : parseFloat(cleanedValue);
+    };
+
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+            statusDiv.innerHTML = '<p>데이터를 검증하고 Firestore에 저장 중입니다...</p>';
+            const data = results.data;
+            const requiredFields = ['그룹ID*', 'Shipper*', 'ETD*(YYYY-MM-DD)', '적용환율*', '품목*', 'LOT*', '수량*', '단가($)*'];
+            
+            let errorMessages = [];
+            for (let i = 0; i < data.length; i++) {
+                const row = data[i];
+                const missingFields = requiredFields.filter(field => !row[field] || String(row[field]).trim() === '');
+                if (missingFields.length > 0) {
+                    errorMessages.push(`${i + 2}번째 줄에 필수 항목(${missingFields.join(', ')})이 비어있습니다.`);
+                }
+            }
+
+            if (errorMessages.length > 0) {
+                statusDiv.innerHTML = `<p class="error"><strong>오류:</strong><br>${errorMessages.join('<br>')}</p>`;
+                return;
+            }
+
+            // 그룹ID 기준으로 데이터 재구성
+            const sheetsByGroup = data.reduce((acc, row) => {
+                const groupId = String(row['그룹ID*']).trim();
+                if (!acc[groupId]) {
+                    acc[groupId] = {
+                        id: groupId, // Firestore 문서 ID로 그룹ID 사용
+                        shipper: row['Shipper*'],
+                        etd: row['ETD*(YYYY-MM-DD)'],
+                        eta: row['ETA(YYYY-MM-DD)'] || '',
+                        exchangeRate: parseNumber(row['적용환율*']),
+                        terms: row['Terms'] || '',
+                        origin: row['Origin'] || '',
+                        method: row['Method'] || '',
+                        cbm: parseNumber(row['CBM']),
+                        packaging: row['포장'] || '',
+                        bankFee: parseNumber(row['은행 송금수수료(원)']),
+                        customsRate: parseNumber(row['관세율(%)']),
+                        customsDuty: parseNumber(row['관세(원)']),
+                        vat: parseNumber(row['부가가치세(원)']),
+                        localTotalCost: parseNumber(row['현지 내륙 총 비용(원)']),
+                        importTotalCost: parseNumber(row['수입 총 비용(원)']),
+                        localDeliveryFee: parseNumber(row['국내 내륙 운송비(원)']),
+                        createdAt: new Date().toISOString(),
+                        items: []
+                    };
+                }
+                acc[groupId].items.push({
+                    itemName: row['품목*'],
+                    lot: row['LOT*'],
+                    quantity: parseNumber(row['수량*']),
+                    unit: row['단위'] || 'kg',
+                    unitPrice: parseNumber(row['단가($)*']),
+                });
+                return acc;
+            }, {});
+
+            try {
+                const batch = db.batch();
+                const sheetArray = Object.values(sheetsByGroup);
+
+                sheetArray.forEach(sheetData => {
+                    const docRef = importCostSheetsCollection.doc(sheetData.id);
+                    batch.set(docRef, sheetData);
+                });
+
+                await batch.commit();
+                
+                statusDiv.innerHTML = `<p class="success">${sheetArray.length}개의 정산서 그룹이 성공적으로 등록되었습니다!</p>`;
+                await loadAllDataFromFirebase(); // 데이터 전체 리로드
+                setTimeout(ic_closeBulkUploadModal, 2000);
+
+            } catch (error) {
+                console.error("Firestore 저장 실패:", error);
+                statusDiv.innerHTML = `<p class="error">데이터베이스 저장 중 오류가 발생했습니다: ${error.message}</p>`;
+            }
+        },
+        error: (err) => {
+            statusDiv.innerHTML = `<p class="error">CSV 파일 파싱 중 오류 발생: ${err.message}</p>`;
+        }
+    });
+}
 
 
 // ================== 5. HTML onclick과 함수 연결 ==================

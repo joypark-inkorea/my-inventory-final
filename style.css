@@ -165,3 +165,37 @@ tfoot td { text-align: right; }
     #import-cost .printable-section input { border: none !important; background-color: transparent !important; width: 100% !important; font-size: 9px !important; }
     .btn, .btn-group, #invoice-controls, #item-table button, .action-btn, .header { display: none !important; }
 }
+
+/* 날짜 입력창(input type="date") placeholder 스타일 */
+.date-placeholder {
+    position: relative;
+    width: 100%; /* 너비를 채우도록 설정 */
+}
+
+/* 값이 선택되지 않았을 때 placeholder 텍스트 보여주기 */
+.date-placeholder:before {
+    content: attr(placeholder);
+    position: absolute;
+    color: #888; /* placeholder 글자 색상 */
+    pointer-events: none; /* placeholder 위로 마우스 클릭이 가능하도록 설정 */
+    
+    /* 위치 정렬 */
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding-left: 8px;
+}
+
+/* 날짜가 선택되면 placeholder 숨기기 */
+.date-placeholder:valid:before {
+    display: none;
+}
+
+/* 날짜가 선택되지 않았을 때 브라우저 기본 텍스트(ex: yyyy-mm-dd) 숨기기 */
+.date-placeholder {
+    color: transparent;
+}
+/* 날짜가 선택되면 실제 날짜 텍스트 보여주기 */
+.date-placeholder:valid {
+    color: var(--dark-gray);
+}

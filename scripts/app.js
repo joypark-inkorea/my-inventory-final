@@ -1258,7 +1258,7 @@ function generateBill() {
         <div id="bill-controls">
              <button class="btn btn-success" onclick="addBillItemRow()">항목 추가</button>
              <button class="btn btn-primary" onclick="printBill()">인쇄</button>
-             <button class="btn btn-info" onclick="saveBillAsPDF()">PDF로 저장</button>
+             <button class="btn btn-warning" onclick="saveBillAsPDF()">PDF로 저장</button>
         </div>
         <div id="bill-content" class="invoice">
             <div class="invoice-header"><h2 class="invoice-title">청 구 서</h2></div>
@@ -1364,3 +1364,4 @@ window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
 window.calculateRowAndTotal = calculateRowAndTotal;
 window.calculateBillTotals = calculateBillTotals;
+

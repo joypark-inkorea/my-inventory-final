@@ -246,18 +246,30 @@ async function deleteSelectedTransactions() {
     if (!confirm(`선택된 ${selectedIds.length}개의 거래를 삭제하시겠습니까?`)) return;
 
     try {
+        // --- 🔶 여기가 이번 문제의 최종 해결책입니다 🔶 ---
+        // 만약 삭제하려는 항목 중에 '현재 수정 중인 항목'이 포함되어 있다면,
+        if (editingTransactionId && selectedIds.includes(editingTransactionId)) {
+            // 수정 폼을 깨끗하게 초기화하고 수정 상태를 해제합니다.
+            cancelTransactionEdit();
+        }
+        // --- 🔶 수정 끝 🔶 ---
+
         const batch = db.batch();
         selectedIds.forEach(id => batch.delete(transactionsCollection.doc(id)));
         await batch.commit();
+
+        // 이제 실시간 리스너(onSnapshot)가 삭제를 감지하고 화면을 자동으로
+        // 갱신하므로, 아래 두 줄의 수동 코드(로컬 데이터 처리)는 필요 없습니다.
+        // transactions = transactions.filter(t => !selectedIds.includes(t.id));
+        // updateAll();
         
-        transactions = transactions.filter(t => !selectedIds.includes(t.id));
-        updateAll();
         alert(`${selectedIds.length}개의 거래가 삭제되었습니다.`);
     } catch (error) {
         console.error("데이터 삭제 오류:", error);
         alert("데이터를 삭제하는 중 오류가 발생했습니다.");
     }
 }
+
 
 async function ic_processCostSheet(isEdit) {
     const sheetData = {
@@ -1487,6 +1499,7 @@ window.loadBackupFile = loadBackupFile;
 // [신규] 청구서 헬퍼 함수
 window.calculateRowAndTotal = calculateRowAndTotal;
 window.calculateBillTotals = calculateBillTotals;
+
 
 
 

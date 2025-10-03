@@ -187,6 +187,8 @@ async function processTransaction(isEdit) {
     }
 }
 
+
+
 async function processBulkTransactions(records) {
     const batch = db.batch();
     const newLocalTransactions = [];
@@ -1458,3 +1460,4 @@ window.loadBackupFile = loadBackupFile;
 // [신규] 청구서 헬퍼 함수
 window.calculateRowAndTotal = calculateRowAndTotal;
 window.calculateBillTotals = calculateBillTotals;
+

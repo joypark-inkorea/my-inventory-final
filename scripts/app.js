@@ -451,7 +451,7 @@ function resetTransactionFilters() {
 }
 
 function resetSalesReportFilters() {
-  ['filter-sales-start-date', 'filter-sales-end-date', 'filter-sales-company', 'filter-sales-brand']
+  ['filter-sales-start-date', 'filter-sales-end-date', 'filter-sales-company', 'filter-sales-brand', 'filter-sales-category']
   .forEach(id => document.getElementById(id).value = '');
     generateSalesReport();
 }
@@ -738,18 +738,20 @@ function saveInvoiceAsPDF() {
 }
 
 function generateSalesReport() {
-   const startDate = document.getElementById('filter-sales-start-date').value;
-   const endDate = document.getElementById('filter-sales-end-date').value;
-     const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
+    const startDate = document.getElementById('filter-sales-start-date').value;
+    const endDate = document.getElementById('filter-sales-end-date').value;
+    const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
     const brandFilter = document.getElementById('filter-sales-brand').value.toLowerCase();
-    
-const outgoingTransactions = transactions.filter(t => {
-const transactionDate = new Date(t.date);
-const startCheck = !startDate || transactionDate >= new Date(startDate);
-const endCheck = !endDate || transactionDate <= new Date(endDate);
-return t.type === '출고' && startCheck && endCheck &&
-        (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
-        (!brandFilter || t.brand.toLowerCase().includes(brandFilter));
+    const categoryFilter = document.getElementById('filter-sales-category').value.toLowerCase(); // 품목 필터 값 가져오기
+
+    const outgoingTransactions = transactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        const startCheck = !startDate || transactionDate >= new Date(startDate);
+        const endCheck = !endDate || transactionDate <= new Date(endDate);
+        return t.type === '출고' && startCheck && endCheck &&
+            (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
+            (!brandFilter || t.brand.toLowerCase().includes(brandFilter)) &&
+            (!categoryFilter || (t.category || '').toLowerCase().includes(categoryFilter)); // 품목 필터 조건 추가
     });
 
     const tbody = document.getElementById('sales-report-tbody');
@@ -802,6 +804,9 @@ return t.type === '출고' && startCheck && endCheck &&
     document.getElementById('total-sales-margin').innerText = totalMargin.toLocaleString(undefined, {maximumFractionDigits:2});
     document.getElementById('total-sales-margin-rate').innerText = `${totalMarginRate}%`;
 }
+
+
+
         
 function toggleAllCheckboxes(className, checked) {
     document.querySelectorAll(`.${className}`).forEach(checkbox => checkbox.checked = checked);

@@ -1147,20 +1147,37 @@ function calculateRowAndTotal(cellElement) {
     calculateBillTotals();
 }
 
+/**
+ * @description [수정됨] 청구서의 모든 합계를 다시 계산합니다. 수량 합계가 추가되었습니다.
+ */
 function calculateBillTotals() {
     const tbody = document.querySelector('#bill-items-table tbody');
     if (!tbody) return;
     let subtotal = 0;
+    let totalQuantity = 0; // 수량 합계를 위한 변수 추가
     tbody.querySelectorAll('tr').forEach(row => {
+        // 수량(7번째 셀, 인덱스 6)을 합산
+        const quantity = parseFloat(row.cells[6].innerText.replace(/,/g, '')) || 0;
+        totalQuantity += quantity;
+
+        // 합계(9번째 셀, 인덱스 8)를 합산
         const rowTotal = parseFloat(row.cells[8].innerText.replace(/,/g, '')) || 0;
         subtotal += rowTotal;
     });
+
     const vat = subtotal * 0.1;
     const total = subtotal + vat;
+
+    // 계산된 합계들을 화면에 업데이트
+    const totalQuantityEl = document.getElementById('bill-total-quantity');
+    if (totalQuantityEl) {
+        totalQuantityEl.innerText = totalQuantity.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
     document.getElementById('bill-subtotal').innerText = Math.round(subtotal).toLocaleString();
     document.getElementById('bill-vat').innerText = Math.round(vat).toLocaleString();
     document.getElementById('bill-total').innerText = Math.round(total).toLocaleString();
 }
+
 
 function addBillItemRow() {
     const tbody = document.querySelector('#bill-items-table tbody');
@@ -1181,6 +1198,9 @@ function addBillItemRow() {
     `;
 }
 
+/**
+ * @description [수정됨] 청구서를 생성하는 기능입니다. 입고/출고를 모두 포함하고, 입고는 마이너스 수량으로 처리합니다.
+ */
 function generateBill() {
     document.getElementById('invoice-wrapper').style.display = 'none';
     const recipientCompany = document.getElementById('recipient-company').value.trim();
@@ -1189,13 +1209,18 @@ function generateBill() {
     if (!recipientCompany || !startDate || !endDate) {
         return alert('(*) 필수 항목(회사명, 날짜 범위)을 입력해주세요.');
     }
+    
+    // [수정] '출고' 뿐만 아니라 '입고' 내역도 함께 필터링합니다.
     const filtered = transactions.filter(t => {
         return new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) &&
-               t.type === '출고' &&
+               (t.type === '출고' || t.type === '입고') &&
                t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
     }).sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    // [수정] 각 내역을 처리하며 입고는 수량을 음수(-)로 변환합니다.
     const itemsHtml = filtered.map(t => {
-        const subtotal = t.weight * t.unitPrice;
+        const quantity = t.type === '입고' ? -t.weight : t.weight;
+        const subtotal = quantity * t.unitPrice;
         return `
         <tr>
             <td contenteditable="true">${t.date}</td>
@@ -1204,7 +1229,7 @@ function generateBill() {
             <td contenteditable="true">${t.spec || ''}</td>
             <td contenteditable="true">${t.lot || ''}</td>
             <td contenteditable="true">kg</td>
-            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${t.weight.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
             <td contenteditable="true" oninput="calculateRowAndTotal(this)">${t.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
             <td class="row-total">${Math.round(subtotal).toLocaleString()}</td>
             <td contenteditable="true">${t.notes || ''}</td>
@@ -1235,6 +1260,11 @@ function generateBill() {
                     <tbody>${itemsHtml}</tbody>
                     <tfoot>
                         <tr>
+                            <td colspan="6" style="text-align: right; font-weight: bold;">수량 합계</td>
+                            <td id="bill-total-quantity" style="text-align: right; font-weight: bold;">0</td>
+                            <td colspan="4"></td>
+                        </tr>
+                        <tr>
                             <td colspan="9" style="text-align: right; font-weight: bold;">공급가액 (합계)</td>
                             <td colspan="2" id="bill-subtotal" style="text-align: right; font-weight: bold;">0</td>
                         </tr>
@@ -1257,6 +1287,7 @@ function generateBill() {
     document.getElementById('bill-wrapper').style.display = 'block';
     calculateBillTotals(); 
 }
+
 
 function printBill() {
     window.print();

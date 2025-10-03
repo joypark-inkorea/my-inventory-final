@@ -68,23 +68,34 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     }).catch(error => console.error('로그아웃 실패:', error));
 });
 
-async function loadAllDataFromFirebase() {
-    try {
-        console.log("Firestore에서 데이터 로드를 시작합니다...");
-        const [tranSnapshot, costSheetSnapshot] = await Promise.all([
-            transactionsCollection.get(),
-            importCostSheetsCollection.get()
-        ]);
+function loadAllDataFromFirebase() {
+    console.log("Firestore에서 실시간 데이터 동기화를 시작합니다...");
 
-        transactions = tranSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        ic_costSheets = costSheetSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // 1. 입출고 내역 실시간 감지
+    transactionsCollection.onSnapshot(snapshot => {
+        transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log(`입출고 데이터 실시간 업데이트됨. 총 ${transactions.length}건`);
+        // 데이터가 변경될 때마다 화면 전체를 다시 계산하고 그림
+        updateAll();
+    }, error => {
+        console.error("입출고 내역 실시간 동기화 오류:", error);
+        alert("입출고 내역을 실시간으로 동기화하는 데 실패했습니다.");
+    });
 
-        console.log(`데이터 로드 완료. 입출고: ${transactions.length}건, 수입원가: ${ic_costSheets.length}건`);
-        initializeAppUI();
-    } catch (error) {
-        console.error("데이터 로딩 중 오류 발생:", error);
-        alert("데이터를 불러오는 데 실패했습니다. 페이지를 새로고침 해주세요.");
-    }
+    // 2. 수입원가 정산서 실시간 감지
+    importCostSheetsCollection.onSnapshot(snapshot => {
+        ic_costSheets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log(`수입원가 데이터 실시간 업데이트됨. 총 ${ic_costSheets.length}건`);
+        // 데이터가 변경될 때마다 정산서 목록을 다시 그림
+        ic_renderList();
+    }, error => {
+        console.error("수입원가 정산서 실시간 동기화 오류:", error);
+        alert("수입원가 정산서 목록을 실시간으로 동기화하는 데 실패했습니다.");
+    });
+
+    // 페이지 로딩 시 UI 초기화는 최초 한 번만 실행
+    // 데이터 로딩 및 화면 업데이트는 위의 onSnapshot 리스너가 담당합니다.
+    initializeAppUI();
 }
 
 function initializeAppUI() {
@@ -96,8 +107,8 @@ function initializeAppUI() {
     document.getElementById('invoice-end-date').value = today;
 
     bindEventListeners();
-    updateAll();
-    ic_renderList();
+    // updateAll() 및 ic_renderList()는 onSnapshot 리스너가
+    // 초기 데이터를 불러오면서 자동으로 호출하므로 여기서 제거합니다.
     ic_addItemRow();
     console.log("UI 초기화 완료.");
 }
@@ -1460,4 +1471,5 @@ window.loadBackupFile = loadBackupFile;
 // [신규] 청구서 헬퍼 함수
 window.calculateRowAndTotal = calculateRowAndTotal;
 window.calculateBillTotals = calculateBillTotals;
+
 

@@ -174,16 +174,18 @@
             <div class="section">
                 <h3>수입 정산 내역</h3>
                 <div class="filter-group">
-                <label for="filter-ic-start-date">ETD 시작일:</label>
-                <input type="date" id="filter-ic-start-date" oninput="ic_renderList()">
-                 <label for="filter-ic-end-date">ETD 종료일:</label>
-                 <input type="date" id="filter-ic-end-date" oninput="ic_renderList()">
+             <input type="date" class="date-placeholder" id="filter-ic-start-date" placeholder="시작일" oninput="ic_renderList()">
+              <input type="date" class="date-placeholder" id="filter-ic-end-date" placeholder="종료일" oninput="ic_renderList()">
+                    
                      <input type="text" id="filter-shipper" placeholder="Shipper 검색" oninput="ic_renderList()">
                      <input type="text" id="filter-item" placeholder="품목 검색" oninput="ic_renderList()">
                      <input type="text" id="filter-lot" placeholder="LOT 검색" oninput="ic_renderList()">
 
    
-                     <button class="btn btn-secondary" onclick="ic_resetFilters()">필터 초기화</button>
+                    <input type="text" id="filter-shipper" placeholder="Shipper 검색" oninput="ic_renderList()">
+                    <input type="text" id="filter-item" placeholder="품목 검색" oninput="ic_renderList()">
+                    <input type="text" id="filter-lot" placeholder="LOT 검색" oninput="ic_renderList()">
+                    <button class="btn btn-secondary" onclick="ic_resetFilters()">필터 초기화</button>
                 </div>
                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <button class="btn btn-success" onclick="ic_exportListToCsv()">CSV로 내보내기</button>
@@ -236,10 +238,9 @@
             <div class="section">
                 <h3>매출 보고서 필터</h3>
                 <div class="filter-group">
-                <label for="filter-sales-start-date">시작일:</label>
-                <input type="date" id="filter-sales-start-date">
-                <label for="filter-sales-end-date">종료일:</label>
-                <input type="date" id="filter-sales-end-date">
+                <input type="date" class="date-placeholder" id="filter-sales-start-date" placeholder="기간 설정 시작일">
+                <input type="date" class="date-placeholder" id="filter-sales-end-date" placeholder="기간 설정 종료일">
+                               
 
                     <input type="text" id="filter-sales-company" placeholder="업체 검색">
                     <input type="text" id="filter-sales-brand" placeholder="브랜드 검색">
@@ -362,4 +363,6 @@
     <script src="scripts/app.js"></script>
 </body>
 </html>
+
+
 

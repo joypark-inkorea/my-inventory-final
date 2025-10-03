@@ -157,6 +157,17 @@ async function processTransaction(isEdit) {
 
     try {
         if (isEdit && editingTransactionId) {
+
+            // --- 🔶🔶🔶 최종 안전장치 🔶🔶🔶 ---
+            // 데이터베이스에 요청하기 직전, 로컬 데이터 목록에 해당 항목이 여전히 존재하는지 마지막으로 확인합니다.
+            const isStillLocallyAvailable = transactions.some(t => t.id === editingTransactionId);
+            if (!isStillLocallyAvailable) {
+                alert("수정하려던 항목이 실시간으로 삭제되었습니다. 수정을 취소합니다.");
+                cancelTransactionEdit();
+                return; // 함수 실행을 즉시 중단
+            }
+            // --- 🔶🔶🔶 최종 안전장치 끝 🔶🔶🔶 ---
+
             const docRef = transactionsCollection.doc(editingTransactionId);
             const doc = await docRef.get();
 
@@ -173,14 +184,14 @@ async function processTransaction(isEdit) {
             await transactionsCollection.add(record);
             alert('입출고 내역이 성공적으로 등록되었습니다.');
         }
-        // 성공 후 폼 초기화는 onSnapshot이 화면을 재구성하며 자동으로 처리되므로,
-        // ഇവിടെ서 직접 호출하기보다 상태 변수만 확실히 초기화합니다.
         cancelTransactionEdit();
     } catch (error) {
         console.error("데이터 저장/수정 오류:", error, "시도된 객체:", record);
         alert(`데이터를 처리하는 중 오류가 발생했습니다. 다시 시도해주세요.\n\n오류: ${error.message}`);
     }
 }
+
+
 
 async function processBulkTransactions(records) {
     const batch = db.batch();
@@ -918,3 +929,4 @@ window.restoreDataFromJson = restoreDataFromJson;
 window.window.loadBackupFile = loadBackupFile;
 window.calculateRowAndTotal = calculateRowAndTotal;
 window.calculateBillTotals = calculateBillTotals;
+

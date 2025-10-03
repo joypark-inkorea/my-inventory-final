@@ -31,20 +31,11 @@ let currentBackupFile = null;
 
 // ================== 0. 페이지 로딩 완료 후 실행 ==================
 document.addEventListener('DOMContentLoaded', () => {
-    // 수입원가 대량등록 모달의 파일 선택(input)과 등록 처리(button) 요소를 가져옵니다.
     const bulkCsvFileInput = document.getElementById('ic_bulk-csv-file');
     const bulkUploadProcessBtn = document.getElementById('ic_bulk-upload-process-btn');
-
-    // 두 요소가 모두 존재할 때만 이벤트 리스너를 추가합니다.
     if (bulkCsvFileInput && bulkUploadProcessBtn) {
-        // 파일 선택 시 이벤트 발생
         bulkCsvFileInput.addEventListener('change', () => {
-            // 선택된 파일이 있으면 '일괄 등록 처리' 버튼을 활성화하고, 없으면 비활성화합니다.
-            if (bulkCsvFileInput.files.length > 0) {
-                bulkUploadProcessBtn.disabled = false;
-            } else {
-                bulkUploadProcessBtn.disabled = true;
-            }
+            bulkUploadProcessBtn.disabled = bulkCsvFileInput.files.length === 0;
         });
     }
 });
@@ -71,36 +62,26 @@ document.getElementById('logout-btn').addEventListener('click', () => {
 function loadAllDataFromFirebase() {
     console.log("Firestore에서 실시간 데이터 동기화를 시작합니다...");
 
-    // 1. 입출고 내역 실시간 감지
     transactionsCollection.onSnapshot(snapshot => {
-        
-        // --- 🔶 여기가 핵심 수정 부분입니다 🔶 ---
-        // 만약 현재 무언가를 수정하고 있는 중이라면,
         if (editingTransactionId) {
-            // 방금 새로 받은 데이터 목록에 수정 중인 ID가 여전히 존재하는지 확인합니다.
             const stillExists = snapshot.docs.some(doc => doc.id === editingTransactionId);
-            
-            // 만약 존재하지 않는다면(즉, 방금 삭제되었다면),
             if (!stillExists) {
                 alert('현재 수정하던 항목이 다른 곳에서 삭제되어 수정 모드를 안전하게 취소합니다.');
-                // 수정 폼을 초기화하고 수정 상태를 해제합니다.
                 cancelTransactionEdit();
             }
         }
-        // --- 🔶 수정 끝 🔶 ---
-
-        transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // 🔶 [수정] 데이터 로드 시 실제 문서 ID가 항상 최우선으로 적용되도록 수정
+        transactions = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         console.log(`입출고 데이터 실시간 업데이트됨. 총 ${transactions.length}건`);
-        
         updateAll();
     }, error => {
         console.error("입출고 내역 실시간 동기화 오류:", error);
         alert("입출고 내역을 실시간으로 동기화하는 데 실패했습니다.");
     });
 
-    // 2. 수입원가 정산서 실시간 감지 (이 부분은 변경 없음)
     importCostSheetsCollection.onSnapshot(snapshot => {
-        ic_costSheets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // 🔶 [수정] 데이터 로드 시 실제 문서 ID가 항상 최우선으로 적용되도록 수정
+        ic_costSheets = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         console.log(`수입원가 데이터 실시간 업데이트됨. 총 ${ic_costSheets.length}건`);
         ic_renderList();
     }, error => {
@@ -111,7 +92,6 @@ function loadAllDataFromFirebase() {
     initializeAppUI();
 }
 
-
 function initializeAppUI() {
     console.log("UI 초기화를 시작합니다...");
     const today = new Date().toISOString().slice(0, 10);
@@ -119,10 +99,7 @@ function initializeAppUI() {
     const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
     document.getElementById('invoice-start-date').value = firstDayOfMonth;
     document.getElementById('invoice-end-date').value = today;
-
     bindEventListeners();
-    // updateAll() 및 ic_renderList()는 onSnapshot 리스너가
-    // 초기 데이터를 불러오면서 자동으로 호출하므로 여기서 제거합니다.
     ic_addItemRow();
     console.log("UI 초기화 완료.");
 }
@@ -136,17 +113,11 @@ function bindEventListeners() {
     ['filter-sales-start-date', 'filter-sales-end-date', 'filter-sales-company', 'filter-sales-brand']
     .forEach(id => document.getElementById(id).addEventListener('input', generateSalesReport));
   
-
     document.getElementById('tran-brand').addEventListener('blur', autoFillItemDetails);
     document.getElementById('tran-lot').addEventListener('blur', autoFillItemDetails);
 }
 
 // ================== 2. Firebase 데이터 처리 (CRUD) ==================
-
-/**
- * * [수정됨] 입출고 내역 수정 오류 해결 (2025.10.03)
- * 업데이트 전 Firestore 문서를 먼저 확인하여 안정성 강화
- */
 
 async function processTransaction(isEdit) {
     const record = {
@@ -171,67 +142,46 @@ async function processTransaction(isEdit) {
 
     try {
         if (isEdit && editingTransactionId) {
-
-            // --- 🔶 최종 안전장치 🔶 ---
             const isStillLocallyAvailable = transactions.some(t => t.id === editingTransactionId);
             if (!isStillLocallyAvailable) {
                 alert("수정하려던 항목이 실시간으로 삭제되었습니다. 수정을 취소합니다.");
                 cancelTransactionEdit();
                 return;
             }
-            // --- 🔶 안전장치 끝 🔶 ---
-
+            
             const docRef = transactionsCollection.doc(editingTransactionId);
             const doc = await docRef.get();
-
             if (!doc.exists) {
                 alert('오류: 수정하려는 데이터가 데이터베이스에 존재하지 않습니다. 페이지를 새로고침 후 다시 시도해주세요.');
                 console.error("수정 실패: 문서 ID를 찾을 수 없음", editingTransactionId);
                 cancelTransactionEdit();
                 return;
             }
-
             await docRef.update(record);
-            const index = transactions.findIndex(t => t.id === editingTransactionId);
-            if (index > -1) {
-                transactions[index] = { id: editingTransactionId, ...record };
-            }
             alert('거래내역이 성공적으로 수정되었습니다.');
         } else {
-            const docRef = await transactionsCollection.add(record);
-            transactions.push({ id: docRef.id, ...record });
+            await transactionsCollection.add(record);
             alert('입출고 내역이 성공적으로 등록되었습니다.');
         }
-
-        updateAll();
         cancelTransactionEdit();
-        
     } catch (error) {
-        console.error("데이터 저장/수정 오류:", error);
-        console.error("시도된 객체:", record);
+        console.error("데이터 저장/수정 오류:", error, "시도된 객체:", record);
         alert(`데이터를 처리하는 중 오류가 발생했습니다. 다시 시도해주세요.\n\n오류: ${error.message}`);
     }
 }
 
-
 async function processBulkTransactions(records) {
     const batch = db.batch();
-    const newLocalTransactions = [];
     let successCount = 0;
-    
     for (const record of records) {
         if (!record.date || !record.brand || !record.lot || record.weight <= 0 || !record.company) continue;
         const docRef = transactionsCollection.doc();
         batch.set(docRef, record);
-        newLocalTransactions.push({ id: docRef.id, ...record });
         successCount++;
     }
-
     try {
         await batch.commit();
-        transactions.push(...newLocalTransactions);
         document.getElementById('bulk-upload-status').innerText = `총 ${records.length}건 중 ${successCount}건 처리 성공.`;
-        updateAll();
     } catch (error) {
         console.error("대량 등록 오류:", error);
         document.getElementById('bulk-upload-status').innerText = `오류 발생: ${error.message}`;
@@ -242,25 +192,13 @@ async function deleteSelectedTransactions() {
     const selectedIds = Array.from(document.querySelectorAll('.transaction-checkbox:checked')).map(cb => cb.value);
     if (selectedIds.length === 0) return alert('삭제할 항목을 선택하세요.');
     if (!confirm(`선택된 ${selectedIds.length}개의 거래를 삭제하시겠습니까?`)) return;
-
     try {
-        // --- 🔶 여기가 이번 문제의 최종 해결책입니다 🔶 ---
-        // 만약 삭제하려는 항목 중에 '현재 수정 중인 항목'이 포함되어 있다면,
         if (editingTransactionId && selectedIds.includes(editingTransactionId)) {
-            // 수정 폼을 깨끗하게 초기화하고 수정 상태를 해제합니다.
             cancelTransactionEdit();
         }
-        // --- 🔶 수정 끝 🔶 ---
-
         const batch = db.batch();
         selectedIds.forEach(id => batch.delete(transactionsCollection.doc(id)));
         await batch.commit();
-
-        // 이제 실시간 리스너(onSnapshot)가 삭제를 감지하고 화면을 자동으로
-        // 갱신하므로, 아래 두 줄의 수동 코드(로컬 데이터 처리)는 필요 없습니다.
-        // transactions = transactions.filter(t => !selectedIds.includes(t.id));
-        // updateAll();
-        
         alert(`${selectedIds.length}개의 거래가 삭제되었습니다.`);
     } catch (error) {
         console.error("데이터 삭제 오류:", error);
@@ -288,7 +226,6 @@ async function ic_processCostSheet(isEdit) {
         forwarderFee3: document.getElementById('form-forwarder-fee3').value,
         items: []
     };
-    
     document.querySelectorAll('#item-tbody tr').forEach(row => {
         const item = {
             name: row.querySelector('.item-name').value.trim(),
@@ -299,11 +236,9 @@ async function ic_processCostSheet(isEdit) {
         };
         if (item.name && item.qty > 0) sheetData.items.push(item);
     });
-
     if (!sheetData.shipper || !sheetData.etd || ic_pFloat(sheetData.exchangeRate) === 0 || sheetData.items.length === 0) {
         return alert('필수 항목(Shipper, ETD, 적용환율, 품목 정보)을 모두 입력해주세요.');
     }
-    
     let totalInvoiceValue = sheetData.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
     const exchangeRate = ic_pFloat(sheetData.exchangeRate);
     const invoiceKrw = totalInvoiceValue * exchangeRate;
@@ -314,29 +249,20 @@ async function ic_processCostSheet(isEdit) {
     sheetData.items.forEach(item => {
         item.unitCost = (totalInvoiceValue > 0 && item.qty > 0) ? (grandTotal * ((item.qty * item.price) / totalInvoiceValue)) / item.qty : 0;
     });
-
     try {
-        if (isEdit && ic_editingId) { // isEdit만 있던 것을 ic_editingId도 있도록 수정
-            
-            // --- 🔶 수입원가 수정용 안전장치 🔶 ---
+        if (isEdit && ic_editingId) {
             const isStillLocallyAvailable = ic_costSheets.some(s => s.id === ic_editingId);
             if (!isStillLocallyAvailable) {
                 alert("수정하려던 수입원가 내역이 실시간으로 삭제되었습니다. 수정을 취소합니다.");
                 ic_clearForm();
                 return;
             }
-            // --- 🔶 안전장치 끝 🔶 ---
-
             await importCostSheetsCollection.doc(ic_editingId).update(sheetData);
-            const index = ic_costSheets.findIndex(s => s.id === ic_editingId);
-            if (index > -1) ic_costSheets[index] = { id: ic_editingId, ...sheetData };
             alert('수정되었습니다.');
         } else {
-            const docRef = await importCostSheetsCollection.add(sheetData);
-            ic_costSheets.push({ id: docRef.id, ...sheetData });
+            await importCostSheetsCollection.add(sheetData);
             alert('등록되었습니다.');
         }
-        ic_renderList();
         ic_clearForm();
     } catch (error) {
         console.error("정산서 저장 오류:", error);
@@ -344,28 +270,20 @@ async function ic_processCostSheet(isEdit) {
     }
 }
 
-
-
-
 async function ic_deleteSelectedSheets() {
     const selectedIds = Array.from(document.querySelectorAll('.sheet-checkbox:checked')).map(cb => cb.value);
     if (selectedIds.length === 0) return alert('삭제할 항목을 선택하세요.');
     if (!confirm(`선택된 ${selectedIds.length}개의 정산 내역을 삭제하시겠습니까?`)) return;
-
     try {
         const batch = db.batch();
         selectedIds.forEach(id => batch.delete(importCostSheetsCollection.doc(id)));
         await batch.commit();
-        
-        ic_costSheets = ic_costSheets.filter(s => !selectedIds.includes(s.id));
-        ic_renderList();
         alert(`${selectedIds.length}개의 정산 내역이 삭제되었습니다.`);
     } catch (error) {
         console.error("정산서 삭제 오류:", error);
         alert("정산서를 삭제하는 중 오류가 발생했습니다.");
     }
 }
-
 
 // ================== 3. 백업/복원 기능 추가 ==================
 
@@ -396,47 +314,39 @@ function loadBackupFile(event) {
 }
 
 async function restoreDataFromJson() {
-    if (!currentBackupFile) {
-        return alert('먼저 복원할 백업 파일을 선택해주세요.');
-    }
-
-    const confirmation = prompt(
-        "경고: 이 작업은 클라우드의 모든 데이터를 덮어씁니다. 다른 사용자의 작업 내용이 사라질 수 있습니다.\n\n계속하려면 '복원합니다' 라고 정확히 입력해주세요."
-    );
-
-    if (confirmation !== '복원합니다') {
+    if (!currentBackupFile) return alert('먼저 복원할 백업 파일을 선택해주세요.');
+    if (prompt("경고: 이 작업은 클라우드의 모든 데이터를 덮어씁니다. 계속하려면 '복원합니다' 라고 정확히 입력해주세요.") !== '복원합니다') {
         return alert('복원 작업이 취소되었습니다.');
     }
-
     const reader = new FileReader();
     reader.onload = async function(e) {
         try {
             const parsedData = JSON.parse(e.target.result);
-            if (parsedData.transactions && parsedData.importCostSheets) {
-                alert('복원을 시작합니다. 데이터 양에 따라 시간이 걸릴 수 있습니다. 완료 메시지가 나타날 때까지 기다려주세요.');
-                
-                // 1. 기존 데이터 전체 삭제
-                const deletePromises = [
-                    ...transactions.map(doc => transactionsCollection.doc(doc.id).delete()),
-                    ...ic_costSheets.map(doc => importCostSheetsCollection.doc(doc.id).delete())
-                ];
-                await Promise.all(deletePromises);
-
-                // 2. 새 데이터 전체 추가
-                const addPromises = [
-                    ...parsedData.transactions.map(doc => transactionsCollection.add(doc)),
-                    ...parsedData.importCostSheets.map(doc => importCostSheetsCollection.add(doc))
-                ];
-                await Promise.all(addPromises);
-                
-                // 3. 데이터 다시 로드 및 UI 갱신
-                await loadAllDataFromFirebase();
-                
-                document.getElementById('backup-status').innerText = '데이터가 성공적으로 복원되었습니다.';
-                alert('데이터 복원이 완료되었습니다!');
-            } else {
-                alert('선택된 파일이 유효한 백업 파일이 아닙니다.');
+            if (!parsedData.transactions || !parsedData.importCostSheets) {
+                return alert('선택된 파일이 유효한 백업 파일이 아닙니다.');
             }
+            alert('복원을 시작합니다. 완료 메시지가 나타날 때까지 기다려주세요.');
+            
+            const [oldTrans, oldSheets] = await Promise.all([transactionsCollection.get(), importCostSheetsCollection.get()]);
+            const deleteBatch = db.batch();
+            oldTrans.docs.forEach(doc => deleteBatch.delete(doc.ref));
+            oldSheets.docs.forEach(doc => deleteBatch.delete(doc.ref));
+            await deleteBatch.commit();
+
+            const addBatch = db.batch();
+            // 🔶 [수정] 복원 시 데이터 내의 'id' 필드를 제거하여 오염 방지
+            parsedData.transactions.forEach(doc => {
+                const { id, ...dataToSave } = doc;
+                addBatch.set(transactionsCollection.doc(), dataToSave);
+            });
+            parsedData.importCostSheets.forEach(doc => {
+                const { id, ...dataToSave } = doc;
+                addBatch.set(importCostSheetsCollection.doc(), dataToSave);
+            });
+            await addBatch.commit();
+            
+            document.getElementById('backup-status').innerText = '데이터가 성공적으로 복원되었습니다.';
+            alert('데이터 복원이 완료되었습니다!');
         } catch (error) {
             console.error("복원 중 오류 발생:", error);
             alert('파일 처리 또는 데이터 복원 중 오류가 발생했습니다.');
@@ -448,7 +358,6 @@ async function restoreDataFromJson() {
     };
     reader.readAsText(currentBackupFile);
 }
-
 
 // ================== 4. UI 및 비즈니스 로직 (원본 파일의 모든 함수 포함) ==================
 
@@ -477,11 +386,8 @@ function showTab(tabName) {
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
-   
-    // 거래명세표와 청구서 wrapper를 확실히 숨깁니다.
     document.getElementById('invoice-wrapper').style.display = 'none';
     document.getElementById('bill-wrapper').style.display = 'none';
-
     document.getElementById(tabName).classList.add('active');
     cancelTransactionEdit();
     ic_clearForm();
@@ -545,7 +451,6 @@ function resetTransactionFilters() {
 }
 
 function resetSalesReportFilters() {
- // [수정] 새로운 기간 필드를 초기화하도록 변경합니다.
   ['filter-sales-start-date', 'filter-sales-end-date', 'filter-sales-company', 'filter-sales-brand']
   .forEach(id => document.getElementById(id).value = '');
     generateSalesReport();
@@ -648,7 +553,10 @@ function editSelectedTransaction() {
     if (selectedIds.length !== 1) return alert('수정할 항목을 하나만 선택하세요.');
     
     const transaction = transactions.find(t => t.id === selectedIds[0]);
-    if (!transaction) return;
+    if (!transaction) {
+        alert("오류: UI 데이터가 일치하지 않습니다. 페이지를 새로고침(Ctrl+Shift+R)하고 다시 시도해주세요.");
+        return;
+    }
     
     editingTransactionId = transaction.id;
     document.getElementById('transaction-type').value = transaction.type;
@@ -685,7 +593,7 @@ function cancelTransactionEdit() {
     document.getElementById('transaction-date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('transaction-form-title').innerText = '입출고 등록';
     document.getElementById('transaction-form-buttons').innerHTML = `
-        <button class="btn btn-primary" onclick="addTransaction()">입출고 등록</button>
+        <button class="btn btn-primary" onclick="processTransaction(false)">입출고 등록</button>
         <button class="btn btn-warning" onclick="openBulkUploadModal()">대량 입출고 등록</button>`;
     toggleOtherCostsField();
 }
@@ -747,7 +655,6 @@ function processBulkUpload() {
     });
 }
 
-// 🔴 CSV 다운로드 헬퍼 함수 (안정성 개선) 🔴
 function downloadCSV(csvContent, filename) {
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -831,7 +738,6 @@ function saveInvoiceAsPDF() {
 }
 
 function generateSalesReport() {
-   // 기간 필터 값 가져오기
    const startDate = document.getElementById('filter-sales-start-date').value;
    const endDate = document.getElementById('filter-sales-end-date').value;
      const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
@@ -842,13 +748,9 @@ const transactionDate = new Date(t.date);
 const startCheck = !startDate || transactionDate >= new Date(startDate);
 const endCheck = !endDate || transactionDate <= new Date(endDate);
 return t.type === '출고' && startCheck && endCheck &&
-    
-
         (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
         (!brandFilter || t.brand.toLowerCase().includes(brandFilter));
     });
-
-
 
     const tbody = document.getElementById('sales-report-tbody');
     tbody.innerHTML = '';
@@ -935,13 +837,13 @@ function ic_clearForm() {
     ic_addItemRow();
     document.getElementById('ic-form-title').textContent = '수입 정산 등록';
     document.getElementById('ic-submit-btn').textContent = '정산서 등록';
-    document.getElementById('ic-submit-btn').onclick = ic_addCostSheet;
+    document.getElementById('ic-submit-btn').onclick = () => ic_processCostSheet(false);
     document.getElementById('ic-cancel-btn').style.display = 'none';
 }
 
 function ic_resetFilters() {
-    document.getElementById('filter-ic-start-date').value = ''; // 시작일 초기화
-    document.getElementById('filter-ic-end-date').value = '';   // 종료일 초기화
+    document.getElementById('filter-ic-start-date').value = '';
+    document.getElementById('filter-ic-end-date').value = '';
     document.getElementById('filter-shipper').value = '';
     document.getElementById('filter-item').value = '';
     document.getElementById('filter-lot').value = '';
@@ -991,7 +893,6 @@ function ic_calculateAll() {
 function ic_renderList() {
     const tbody = document.getElementById('cost-list-tbody');
     tbody.innerHTML = '';
-    // 기간 필터 값 가져오기
    const filterStartDate = document.getElementById('filter-ic-start-date').value;
    const filterEndDate = document.getElementById('filter-ic-end-date').value;
    const filterShipper = document.getElementById('filter-shipper').value.toLowerCase();
@@ -999,7 +900,6 @@ function ic_renderList() {
     const filterLot = document.getElementById('filter-lot').value.toLowerCase();
 
  const filtered = ic_costSheets.filter(sheet => {
-     // ETD 날짜를 기준으로 필터링
  const etdDate = sheet.etd ? new Date(sheet.etd) : null;
  const startCheck = !filterStartDate || (etdDate && etdDate >= new Date(filterStartDate));
  const endCheck = !filterEndDate || (etdDate && etdDate <= new Date(filterEndDate));
@@ -1008,11 +908,7 @@ function ic_renderList() {
  sheet.shipper.toLowerCase().includes(filterShipper) &&
      (!filterItem || sheet.items.some(item => (item.name || item.itemName).toLowerCase().includes(filterItem))) &&
      (!filterLot || sheet.items.some(item => item.lot.toLowerCase().includes(filterLot)));
-}  
-
-
-
-    ).sort((a,b) => (b.etd || '').localeCompare(a.etd || ''));
+}).sort((a,b) => (b.etd || '').localeCompare(a.etd || ''));
 
     filtered.forEach(sheet => {
         const itemCount = sheet.items.length;
@@ -1031,9 +927,6 @@ function ic_renderList() {
     });
 }
 
-
-// 기존 ic_editSelectedSheet 함수를 아래 코드로 전체 교체하세요.
-
 function ic_editSelectedSheet() {
     const selectedIds = Array.from(document.querySelectorAll('.sheet-checkbox:checked')).map(cb => cb.value);
     if (selectedIds.length !== 1) { return alert('수정할 항목을 하나만 선택하세요.'); }
@@ -1042,7 +935,6 @@ function ic_editSelectedSheet() {
     
     ic_editingId = sheet.id;
     
-    // 기본 정보 채우기
     document.getElementById('form-shipper').value = sheet.shipper || '';
     document.getElementById('form-terms').value = sheet.terms || '';
     document.getElementById('form-origin').value = sheet.origin || '';
@@ -1051,8 +943,6 @@ function ic_editSelectedSheet() {
     document.getElementById('form-eta').value = sheet.eta || '';
     document.getElementById('form-cbm').value = sheet.cbm || '';
     document.getElementById('form-packing').value = sheet.packing || sheet.packaging || '';
-    
-    // [수정] 누락되었던 수입 부대 비용 정보 채우기
     document.getElementById('form-exchange-rate').value = sheet.exchangeRate || '';
     document.getElementById('form-shipping-fee').value = sheet.shippingFee || sheet.bankFee || '';
     document.getElementById('form-tariff-rate').value = sheet.tariffRate || sheet.customsRate || '';
@@ -1062,7 +952,6 @@ function ic_editSelectedSheet() {
     document.getElementById('form-forwarder-fee2').value = sheet.forwarderFee2 || sheet.importTotalCost || '';
     document.getElementById('form-forwarder-fee3').value = sheet.forwarderFee3 || sheet.localDeliveryFee || '';
 
-    // 품목 정보 채우기
     const itemTbody = document.getElementById('item-tbody');
     itemTbody.innerHTML = '';
     sheet.items.forEach(item => {
@@ -1076,12 +965,10 @@ function ic_editSelectedSheet() {
             <td><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); ic_calculateAll();">-</button></td>`;
     });
 
-    // 모든 숫자 필드에 포맷팅 적용
     ['form-exchange-rate', 'form-shipping-fee', 'form-tariff-amount', 'form-vat-amount', 'form-forwarder-fee1', 'form-forwarder-fee2', 'form-forwarder-fee3'].forEach(id => {
         ic_formatInputForDisplay(document.getElementById(id));
     });
     document.querySelectorAll('.item-qty, .item-price').forEach(input => ic_formatInputForDisplay(input));
-
 
     ic_calculateAll();
     document.getElementById('ic-form-title').textContent = '수입 정산 수정';
@@ -1090,8 +977,6 @@ function ic_editSelectedSheet() {
     document.getElementById('ic-cancel-btn').style.display = 'inline-block';
     window.scrollTo(0, 0);
 }
-
-
 
 function ic_toggleAllListCheckboxes(checked) {
     document.querySelectorAll('.sheet-checkbox').forEach(cb => cb.checked = checked);
@@ -1113,9 +998,7 @@ function ic_exportListToCsv() {
     downloadCSV(Papa.unparse(csvData), `수입정산내역_${new Date().toISOString().slice(0,10)}`);
 }
 
-// 🔴 수입원가 모달 제어 함수 수정 (ID 값 오류 수정) 🔴
 function ic_openBulkUploadModal() {
-    // 기존 코드의 'ic_bulkUploadModal' ID를 사용하도록 수정
     const modal = document.getElementById('ic_bulkUploadModal'); 
     const uploadBtn = document.getElementById('ic_bulk-upload-process-btn');
     const form = document.getElementById('ic_bulk-upload-form');
@@ -1132,8 +1015,6 @@ function ic_closeBulkUploadModal() {
     if (modal) modal.style.display = 'none';
 }
 
-
-// 🔴 수입원가 CSV 템플릿 다운로드 함수 수정 (단순화) 🔴
 function ic_downloadBulkTemplate() {
     const headers = [
         "그룹ID*", "Shipper*", "ETD*(YYYY-MM-DD)", "ETA(YYYY-MM-DD)", "적용환율*", "Terms", "Origin", "Method", "CBM", "포장",
@@ -1144,7 +1025,6 @@ function ic_downloadBulkTemplate() {
     downloadCSV(csvContent, '수입정산서_일괄등록_템플릿');
 }
 
-// 🔴🔴🔴 수입원가 대량 등록 기능 전체 구현 (단가 계산 방식 수정) 🔴🔴🔴
 function ic_processBulkUpload() {
     const fileInput = document.getElementById('ic_bulk-csv-file');
     const statusDiv = document.getElementById('ic_bulk-upload-status');
@@ -1185,7 +1065,6 @@ function ic_processBulkUpload() {
                 return;
             }
 
-            // 1. 그룹ID 기준으로 데이터 재구성
             const sheetsByGroup = data.reduce((acc, row) => {
                 const groupId = String(row['그룹ID*']).trim();
                 if (!acc[groupId]) {
@@ -1221,52 +1100,31 @@ function ic_processBulkUpload() {
                 return acc;
             }, {});
 
-            // ⭐️⭐️⭐️ 중요: 올바른 단가 계산 로직으로 수정 ⭐️⭐️⭐️
-            // 2. 그룹별로 최종 단가 계산
             Object.values(sheetsByGroup).forEach(sheet => {
-                // 총 품목 금액($) 계산
                 const totalInvoiceValueUSD = sheet.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-
-                // 원가에 포함될 총 추가비용(KRW) 계산 (VAT 제외)
                 const totalFeesKRW = sheet.bankFee + sheet.customsDuty + sheet.localTotalCost + sheet.importTotalCost + sheet.localDeliveryFee;
-
-                // 각 품목에 대해 단가(unitCost) 계산 후 추가
                 sheet.items.forEach(item => {
-                    // 품목 자체의 원가 (KRW)
                     const baseUnitCostKRW = item.unitPrice * sheet.exchangeRate;
-
                     let allocatedFeePerUnit = 0;
                     if (totalInvoiceValueUSD > 0 && item.quantity > 0) {
-                        // 현재 품목이 전체에서 차지하는 금액 비율
                         const itemValueRatio = (item.quantity * item.unitPrice) / totalInvoiceValueUSD;
-                        // 현재 품목에 할당된 총 추가비용
                         const allocatedFeesForItem = totalFeesKRW * itemValueRatio;
-                        // 현재 품목의 단위(kg)당 추가비용
                         allocatedFeePerUnit = allocatedFeesForItem / item.quantity;
                     }
-                    
-                    // 최종 단가 = 품목 원가 + 단위당 추가비용
                     item.unitCost = baseUnitCostKRW + allocatedFeePerUnit;
                 });
             });
-            // ⭐️⭐️⭐️ 계산 로직 끝 ⭐️⭐️⭐️
 
             try {
-                // 3. 계산된 데이터를 Firestore에 저장
                 const batch = db.batch();
                 const sheetArray = Object.values(sheetsByGroup);
-
                 sheetArray.forEach(sheetData => {
                     const docRef = importCostSheetsCollection.doc(sheetData.id);
                     batch.set(docRef, sheetData);
                 });
-
                 await batch.commit();
-                
                 statusDiv.innerHTML = `<p class="success">${sheetArray.length}개의 정산서 그룹이 성공적으로 등록되었습니다!</p>`;
-                await loadAllDataFromFirebase();
                 setTimeout(ic_closeBulkUploadModal, 2000);
-
             } catch (error) {
                 console.error("Firestore 저장 실패:", error);
                 statusDiv.innerHTML = `<p class="error">데이터베이스 저장 중 오류가 발생했습니다: ${error.message}</p>`;
@@ -1278,59 +1136,36 @@ function ic_processBulkUpload() {
     });
 }
 
-
 // ================== 4-1. 청구서 관련 기능 (수정됨) ==================
-
-/**
- * [신규] 청구서의 특정 행(row)과 전체 합계를 다시 계산하는 함수
- * @param {HTMLElement} cellElement 수정된 셀(td) 요소
- */
 function calculateRowAndTotal(cellElement) {
     const row = cellElement.closest('tr');
     if (!row) return;
-
     const quantity = parseFloat(row.cells[6].innerText.replace(/,/g, '')) || 0;
     const unitPrice = parseFloat(row.cells[7].innerText.replace(/,/g, '')) || 0;
     const subtotal = quantity * unitPrice;
-
-    // 해당 행의 합계 업데이트
     row.cells[8].innerText = Math.round(subtotal).toLocaleString();
-
-    // 전체 합계 다시 계산
     calculateBillTotals();
 }
 
-/**
- * [수정됨] 청구서의 합계와 부가세를 다시 계산하여 화면에 표시하는 함수
- */
 function calculateBillTotals() {
     const tbody = document.querySelector('#bill-items-table tbody');
     if (!tbody) return;
-
     let subtotal = 0;
     tbody.querySelectorAll('tr').forEach(row => {
-        // 각 행의 합계(8번째 셀) 값을 읽어와 더함
         const rowTotal = parseFloat(row.cells[8].innerText.replace(/,/g, '')) || 0;
         subtotal += rowTotal;
     });
-
     const vat = subtotal * 0.1;
     const total = subtotal + vat;
-
-    // 화면에 계산된 값 업데이트
     document.getElementById('bill-subtotal').innerText = Math.round(subtotal).toLocaleString();
     document.getElementById('bill-vat').innerText = Math.round(vat).toLocaleString();
     document.getElementById('bill-total').innerText = Math.round(total).toLocaleString();
 }
 
-/**
- * [수정됨] 청구서에 새로운 빈 항목(행)을 추가하고, 수정 가능하도록 하는 함수
- */
 function addBillItemRow() {
     const tbody = document.querySelector('#bill-items-table tbody');
     if (!tbody) return;
     const newRow = tbody.insertRow();
-    // contenteditable 속성을 주어 바로 수정 가능하게 함
     newRow.innerHTML = `
         <td contenteditable="true"></td>
         <td contenteditable="true"></td>
@@ -1346,27 +1181,19 @@ function addBillItemRow() {
     `;
 }
 
-/**
- * [수정됨] 편집 가능한 청구서를 생성하는 메인 함수
- */
 function generateBill() {
     document.getElementById('invoice-wrapper').style.display = 'none';
-
     const recipientCompany = document.getElementById('recipient-company').value.trim();
     const startDate = document.getElementById('invoice-start-date').value;
     const endDate = document.getElementById('invoice-end-date').value;
-    
     if (!recipientCompany || !startDate || !endDate) {
         return alert('(*) 필수 항목(회사명, 날짜 범위)을 입력해주세요.');
     }
-    
     const filtered = transactions.filter(t => {
         return new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) &&
                t.type === '출고' &&
                t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
     }).sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    // 각 셀에 oninput="calculateRowAndTotal(this)" 이벤트를 추가
     const itemsHtml = filtered.map(t => {
         const subtotal = t.weight * t.unitPrice;
         return `
@@ -1386,7 +1213,6 @@ function generateBill() {
     `}).join('');
     
     const billWrapper = document.getElementById('bill-wrapper');
-
     billWrapper.innerHTML = `
         <div id="bill-controls">
              <button class="btn btn-success" onclick="addBillItemRow()">항목 추가</button>
@@ -1429,33 +1255,19 @@ function generateBill() {
     `;
     
     document.getElementById('bill-wrapper').style.display = 'block';
-    // 청구서가 생성된 직후, 초기 합계를 계산
     calculateBillTotals(); 
 }
 
-/**
- * 청구서 인쇄 함수
- */
 function printBill() {
-    const billWrapper = document.getElementById('bill-wrapper');
-    if (billWrapper.style.display === 'none') return; // 청구서가 보일 때만 인쇄
     window.print();
 }
 
-/**
- * 청구서 PDF 저장 함수
- */
 function saveBillAsPDF() {
-    const billWrapper = document.getElementById('bill-wrapper');
-    if (billWrapper.style.display === 'none') return; // 청구서가 보일 때만 저장
-    
     html2pdf(document.getElementById('bill-content'), {
         margin: 10, filename: '청구서.pdf', image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     });
 }
-
-
 
 // ================== 5. HTML onclick과 함수 연결 ==================
 window.showTab = showTab;
@@ -1477,12 +1289,10 @@ window.showItemHistoryInTransactionTab = showItemHistoryInTransactionTab;
 window.generateInvoice = generateInvoice;
 window.printInvoice = printInvoice;
 window.saveInvoiceAsPDF = saveInvoiceAsPDF;
-
 window.generateBill = generateBill;
 window.addBillItemRow = addBillItemRow;
 window.printBill = printBill;
 window.saveBillAsPDF = saveBillAsPDF;
-
 window.generateSalesReport = generateSalesReport;
 window.resetSalesReportFilters = resetSalesReportFilters;
 window.exportSalesReportCSV = exportSalesReportCSV;
@@ -1505,12 +1315,5 @@ window.ic_processBulkUpload = ic_processBulkUpload;
 window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
-
-// [신규] 청구서 헬퍼 함수
 window.calculateRowAndTotal = calculateRowAndTotal;
 window.calculateBillTotals = calculateBillTotals;
-
-
-
-
-

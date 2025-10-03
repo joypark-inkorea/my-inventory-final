@@ -206,6 +206,7 @@ async function deleteSelectedTransactions() {
     }
 }
 
+
 async function ic_processCostSheet(isEdit) {
     const sheetData = {
         shipper: document.getElementById('form-shipper').value.trim(),
@@ -243,7 +244,10 @@ async function ic_processCostSheet(isEdit) {
     const exchangeRate = ic_pFloat(sheetData.exchangeRate);
     const invoiceKrw = totalInvoiceValue * exchangeRate;
     const totalMaterialCost = invoiceKrw + ic_pFloat(sheetData.shippingFee);
-    const tariffCost = ic_pFloat(sheetData.tariffAmount) > 0 ? ic_pFloat(sheetData.tariffAmount) : invoiceKrw * (ic_pFloat(sheetData.tariffRate) / 100);
+
+    // [수정] 관세율(%) 자동계산 로직을 제거하고, 입력된 관세 금액만 사용합니다.
+    const tariffCost = ic_pFloat(sheetData.tariffAmount);
+
     const totalForwarderFee = ic_pFloat(sheetData.forwarderFee1) + ic_pFloat(sheetData.forwarderFee2) + ic_pFloat(sheetData.forwarderFee3);
     const grandTotal = totalMaterialCost + tariffCost + totalForwarderFee;
     sheetData.items.forEach(item => {
@@ -269,6 +273,7 @@ async function ic_processCostSheet(isEdit) {
         alert("정산서를 저장하는 중 오류가 발생했습니다.");
     }
 }
+
 
 async function ic_deleteSelectedSheets() {
     const selectedIds = Array.from(document.querySelectorAll('.sheet-checkbox:checked')).map(cb => cb.value);
@@ -855,6 +860,7 @@ function ic_resetFilters() {
     ic_renderList();
 }
 
+
 function ic_calculateAll() {
     let totalInvoiceValue = 0;
     const items = [];
@@ -871,7 +877,7 @@ function ic_calculateAll() {
 
     const exchangeRate = ic_pFloat(document.getElementById('form-exchange-rate').value);
     const shippingFee = ic_pFloat(document.getElementById('form-shipping-fee').value);
-    const tariffRate = ic_pFloat(document.getElementById('form-tariff-rate').value) / 100;
+    // const tariffRate = ic_pFloat(document.getElementById('form-tariff-rate').value) / 100; // 관세율은 이제 계산에 사용하지 않음
     const tariffAmount = ic_pFloat(document.getElementById('form-tariff-amount').value);
     const fFee1 = ic_pFloat(document.getElementById('form-forwarder-fee1').value);
     const fFee2 = ic_pFloat(document.getElementById('form-forwarder-fee2').value);
@@ -879,7 +885,10 @@ function ic_calculateAll() {
 
     const invoiceKrw = totalInvoiceValue * exchangeRate;
     const totalMaterialCost = invoiceKrw + shippingFee;
-    const tariffCost = tariffAmount > 0 ? tariffAmount : invoiceKrw * tariffRate;
+    
+    // [수정] 관세율(%) 자동계산 로직을 제거하고, 입력된 관세 금액만 사용합니다.
+    const tariffCost = tariffAmount; 
+    
     const totalForwarderFee = fFee1 + fFee2 + fFee3;
     const grandTotal = totalMaterialCost + tariffCost + totalForwarderFee;
     
@@ -894,6 +903,8 @@ function ic_calculateAll() {
             <td class="highlight calculated-field">₩${Math.round(unitCost).toLocaleString()}</td>`;
     });
 }
+
+
 
 function ic_renderList() {
     const tbody = document.getElementById('cost-list-tbody');

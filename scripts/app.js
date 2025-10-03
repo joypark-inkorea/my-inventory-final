@@ -110,7 +110,7 @@ function bindEventListeners() {
      'filter-tran-spec', 'filter-tran-lot', 'filter-tran-company']
     .forEach(id => document.getElementById(id).addEventListener('input', applyFiltersAndRender));
 
-    ['filter-sales-start-date', 'filter-sales-end-date', 'filter-sales-company', 'filter-sales-brand']
+    ['filter-sales-start-date', 'filter-sales-end-date', 'filter-sales-company', 'filter-sales-brand', 'filter-sales-category']
     .forEach(id => document.getElementById(id).addEventListener('input', generateSalesReport));
   
     document.getElementById('tran-brand').addEventListener('blur', autoFillItemDetails);
@@ -172,8 +172,9 @@ async function processBulkTransactions(records) {
     let successCount = 0;
     for (const record of records) {
         if (!record.date || !record.brand || !record.lot || record.weight <= 0 || !record.company) continue;
+        const { id, ...dataToSave } = record;
         const docRef = transactionsCollection.doc();
-        batch.set(docRef, record);
+        batch.set(docRef, dataToSave);
         successCount++;
     }
     try {
@@ -248,6 +249,12 @@ async function ic_processCostSheet(isEdit) {
     });
     try {
         if (isEdit && ic_editingId) {
+            const isStillLocallyAvailable = ic_costSheets.some(s => s.id === ic_editingId);
+            if (!isStillLocallyAvailable) {
+                alert("수정하려던 수입원가 내역이 실시간으로 삭제되었습니다. 수정을 취소합니다.");
+                ic_clearForm();
+                return;
+            }
             await importCostSheetsCollection.doc(ic_editingId).update(sheetData);
             alert('수정되었습니다.');
         } else {
@@ -266,6 +273,9 @@ async function ic_deleteSelectedSheets() {
     if (selectedIds.length === 0) return alert('삭제할 항목을 선택하세요.');
     if (!confirm(`선택된 ${selectedIds.length}개의 정산 내역을 삭제하시겠습니까?`)) return;
     try {
+        if (ic_editingId && selectedIds.includes(ic_editingId)) {
+            ic_clearForm();
+        }
         const batch = db.batch();
         selectedIds.forEach(id => batch.delete(importCostSheetsCollection.doc(id)));
         await batch.commit();
@@ -287,7 +297,7 @@ function backupDataToJson() {
     const blob = new Blob([jsonString], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `grutex_firebase_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `groootex_firebase_backup_${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
 }
 
@@ -325,7 +335,6 @@ async function restoreDataFromJson() {
             await deleteBatch.commit();
 
             const addBatch = db.batch();
-            // [수정] 복원 시 데이터 내의 'id' 필드를 제거하여 오염 방지
             parsedData.transactions.forEach(doc => {
                 const { id, ...dataToSave } = doc;
                 addBatch.set(transactionsCollection.doc(), dataToSave);
@@ -442,7 +451,7 @@ function resetTransactionFilters() {
 }
 
 function resetSalesReportFilters() {
-  ['filter-sales-start-date', 'filter-sales-end-date', 'filter-sales-company', 'filter-sales-brand']
+  ['filter-sales-start-date', 'filter-sales-end-date', 'filter-sales-company', 'filter-sales-brand', 'filter-sales-category']
   .forEach(id => document.getElementById(id).value = '');
     generateSalesReport();
 }
@@ -677,11 +686,11 @@ function generateInvoice() {
     const recipientCompany = document.getElementById('recipient-company').value.trim();
     const startDate = document.getElementById('invoice-start-date').value;
     const endDate = document.getElementById('invoice-end-date').value;
-    const transactionType = document.getElementById('invoice-transaction-type').value;
+    const transactionType = document.getElementById('invoice-transaction-type');
     if (!recipientCompany || !startDate || !endDate) { return alert('(*) 필수 항목(회사명, 날짜 범위)을 입력해주세요.'); }
     const filtered = transactions.filter(t => {
         return new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) &&
-               (transactionType === 'all' || t.type === transactionType) &&
+               (!transactionType || transactionType.value === 'all' || t.type === transactionType.value) &&
                t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
     }).sort((a, b) => new Date(a.date) - new Date(b.date));
     
@@ -719,16 +728,16 @@ function saveInvoiceAsPDF() {
 function generateSalesReport() {
    const startDate = document.getElementById('filter-sales-start-date').value;
    const endDate = document.getElementById('filter-sales-end-date').value;
-     const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
-    const brandFilter = document.getElementById('filter-sales-brand').value.toLowerCase();
+   const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
+   const brandFilter = document.getElementById('filter-sales-brand').value.toLowerCase();
     
-const outgoingTransactions = transactions.filter(t => {
-const transactionDate = new Date(t.date);
-const startCheck = !startDate || transactionDate >= new Date(startDate);
-const endCheck = !endDate || transactionDate <= new Date(endDate);
-return t.type === '출고' && startCheck && endCheck &&
-        (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
-        (!brandFilter || t.brand.toLowerCase().includes(brandFilter));
+    const outgoingTransactions = transactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        const startCheck = !startDate || transactionDate >= new Date(startDate);
+        const endCheck = !endDate || transactionDate <= new Date(endDate);
+        return t.type === '출고' && startCheck && endCheck &&
+                (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
+                (!brandFilter || t.brand.toLowerCase().includes(brandFilter));
     });
 
     const tbody = document.getElementById('sales-report-tbody');
@@ -786,8 +795,7 @@ function toggleAllCheckboxes(className, checked) {
     document.querySelectorAll(`.${className}`).forEach(checkbox => checkbox.checked = checked);
 }
 
-// ================== (이하 모든 함수는 원본 파일과 동일) ==================
-
+// ================== 수입원가 정산서 스크립트 (ic_ 함수) ==================
 function ic_formatInputForDisplay(input) {
     const value = ic_pFloat(input.value);
     if (!isNaN(value) && input.value.trim() !== '') {
@@ -1116,6 +1124,7 @@ function ic_processBulkUpload() {
     });
 }
 
+// ================== 4-1. 청구서 관련 기능 (수정됨) ==================
 function calculateRowAndTotal(cellElement) {
     const row = cellElement.closest('tr');
     if (!row) return;
@@ -1130,12 +1139,15 @@ function calculateBillTotals() {
     const tbody = document.querySelector('#bill-items-table tbody');
     if (!tbody) return;
     let subtotal = 0;
+    let totalQuantity = 0;
     tbody.querySelectorAll('tr').forEach(row => {
+        totalQuantity += parseFloat(row.cells[6].innerText.replace(/,/g, '')) || 0;
         const rowTotal = parseFloat(row.cells[8].innerText.replace(/,/g, '')) || 0;
         subtotal += rowTotal;
     });
     const vat = subtotal * 0.1;
     const total = subtotal + vat;
+    document.getElementById('bill-total-quantity').innerText = totalQuantity.toLocaleString(undefined, { maximumFractionDigits: 2 });
     document.getElementById('bill-subtotal').innerText = Math.round(subtotal).toLocaleString();
     document.getElementById('bill-vat').innerText = Math.round(vat).toLocaleString();
     document.getElementById('bill-total').innerText = Math.round(total).toLocaleString();
@@ -1172,8 +1184,10 @@ function generateBill() {
         return new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) &&
                t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
     }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
     const itemsHtml = filtered.map(t => {
-        const subtotal = t.weight * t.unitPrice;
+        const displayWeight = t.type === '입고' ? -(t.weight || 0) : (t.weight || 0);
+        const subtotal = displayWeight * (t.unitPrice || 0);
         return `
         <tr>
             <td contenteditable="true">${t.date}</td>
@@ -1182,8 +1196,8 @@ function generateBill() {
             <td contenteditable="true">${t.spec || ''}</td>
             <td contenteditable="true">${t.lot || ''}</td>
             <td contenteditable="true">kg</td>
-            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${t.weight.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${t.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${displayWeight.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${(t.unitPrice || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
             <td class="row-total">${Math.round(subtotal).toLocaleString()}</td>
             <td contenteditable="true">${t.notes || ''}</td>
             <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculateBillTotals();">삭제</button></td>
@@ -1212,6 +1226,10 @@ function generateBill() {
                     </thead>
                     <tbody>${itemsHtml}</tbody>
                     <tfoot>
+                        <tr>
+                            <td colspan="9" style="text-align: right; font-weight: bold;">총 수량 (합계)</td>
+                            <td colspan="2" id="bill-total-quantity" style="text-align: right; font-weight: bold;">0</td>
+                        </tr>
                         <tr>
                             <td colspan="9" style="text-align: right; font-weight: bold;">공급가액 (합계)</td>
                             <td colspan="2" id="bill-subtotal" style="text-align: right; font-weight: bold;">0</td>

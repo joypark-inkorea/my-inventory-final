@@ -148,6 +148,125 @@ function bindEventListeners() {
  * 업데이트 전 Firestore 문서를 먼저 확인하여 안정성 강화
  */
 
+async function processTransaction(isEdit) {
+    const record = {
+        type: document.getElementById('transaction-type').value,
+        date: document.getElementById('transaction-date').value,
+        brand: document.getElementById('tran-brand').value.trim(),
+        lot: document.getElementById('tran-lot').value.trim(),
+        company: document.getElementById('transaction-company').value.trim(),
+        weight: Number(document.getElementById('transaction-weight').value) || 0,
+        unitPrice: Number(document.getElementById('transaction-unit-price').value) || 0,
+        otherCosts: Number(document.getElementById('transaction-other-costs').value) || 0,
+        category: document.getElementById('tran-category').value.trim(),
+        spec: document.getElementById('tran-spec').value.trim(),
+        notes: document.getElementById('transaction-notes').value.trim(),
+        destination: document.getElementById('transaction-destination').value.trim(),
+        specialNotes: document.getElementById('transaction-special-notes').value.trim()
+    };
+
+    if (!record.date || !record.brand || !record.lot || record.weight <= 0 || !record.company) {
+        return alert('필수 항목(날짜, 브랜드, LOT, 중량, 업체)을 모두 입력해주세요.');
+    }
+
+    try {
+        if (isEdit && editingTransactionId) {
+
+            // --- 🔶 최종 안전장치 🔶 ---
+            const isStillLocallyAvailable = transactions.some(t => t.id === editingTransactionId);
+            if (!isStillLocallyAvailable) {
+                alert("수정하려던 항목이 실시간으로 삭제되었습니다. 수정을 취소합니다.");
+                cancelTransactionEdit();
+                return;
+            }
+            // --- 🔶 안전장치 끝 🔶 ---
+
+            const docRef = transactionsCollection.doc(editingTransactionId);
+            const doc = await docRef.get();
+
+            if (!doc.exists) {
+                alert('오류: 수정하려는 데이터가 데이터베이스에 존재하지 않습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+                console.error("수정 실패: 문서 ID를 찾을 수 없음", editingTransactionId);
+                cancelTransactionEdit();
+                return;
+            }
+
+            await docRef.update(record);
+            const index = transactions.findIndex(t => t.id === editingTransactionId);
+            if (index > -1) {
+                transactions[index] = { id: editingTransactionId, ...record };
+            }
+            alert('거래내역이 성공적으로 수정되었습니다.');
+        } else {
+            const docRef = await transactionsCollection.add(record);
+            transactions.push({ id: docRef.id, ...record });
+            alert('입출고 내역이 성공적으로 등록되었습니다.');
+        }
+
+        updateAll();
+        cancelTransactionEdit();
+        
+    } catch (error) {
+        console.error("데이터 저장/수정 오류:", error);
+        console.error("시도된 객체:", record);
+        alert(`데이터를 처리하는 중 오류가 발생했습니다. 다시 시도해주세요.\n\n오류: ${error.message}`);
+    }
+}
+
+
+async function processBulkTransactions(records) {
+    const batch = db.batch();
+    const newLocalTransactions = [];
+    let successCount = 0;
+    
+    for (const record of records) {
+        if (!record.date || !record.brand || !record.lot || record.weight <= 0 || !record.company) continue;
+        const docRef = transactionsCollection.doc();
+        batch.set(docRef, record);
+        newLocalTransactions.push({ id: docRef.id, ...record });
+        successCount++;
+    }
+
+    try {
+        await batch.commit();
+        transactions.push(...newLocalTransactions);
+        document.getElementById('bulk-upload-status').innerText = `총 ${records.length}건 중 ${successCount}건 처리 성공.`;
+        updateAll();
+    } catch (error) {
+        console.error("대량 등록 오류:", error);
+        document.getElementById('bulk-upload-status').innerText = `오류 발생: ${error.message}`;
+    }
+}
+
+async function deleteSelectedTransactions() {
+    const selectedIds = Array.from(document.querySelectorAll('.transaction-checkbox:checked')).map(cb => cb.value);
+    if (selectedIds.length === 0) return alert('삭제할 항목을 선택하세요.');
+    if (!confirm(`선택된 ${selectedIds.length}개의 거래를 삭제하시겠습니까?`)) return;
+
+    try {
+        // --- 🔶 여기가 이번 문제의 최종 해결책입니다 🔶 ---
+        // 만약 삭제하려는 항목 중에 '현재 수정 중인 항목'이 포함되어 있다면,
+        if (editingTransactionId && selectedIds.includes(editingTransactionId)) {
+            // 수정 폼을 깨끗하게 초기화하고 수정 상태를 해제합니다.
+            cancelTransactionEdit();
+        }
+        // --- 🔶 수정 끝 🔶 ---
+
+        const batch = db.batch();
+        selectedIds.forEach(id => batch.delete(transactionsCollection.doc(id)));
+        await batch.commit();
+
+        // 이제 실시간 리스너(onSnapshot)가 삭제를 감지하고 화면을 자동으로
+        // 갱신하므로, 아래 두 줄의 수동 코드(로컬 데이터 처리)는 필요 없습니다.
+        // transactions = transactions.filter(t => !selectedIds.includes(t.id));
+        // updateAll();
+        
+        alert(`${selectedIds.length}개의 거래가 삭제되었습니다.`);
+    } catch (error) {
+        console.error("데이터 삭제 오류:", error);
+        alert("데이터를 삭제하는 중 오류가 발생했습니다.");
+    }
+}
 
 async function ic_processCostSheet(isEdit) {
     const sheetData = {
@@ -227,126 +346,6 @@ async function ic_processCostSheet(isEdit) {
 
 
 
-async function processBulkTransactions(records) {
-    const batch = db.batch();
-    const newLocalTransactions = [];
-    let successCount = 0;
-    
-    for (const record of records) {
-        if (!record.date || !record.brand || !record.lot || record.weight <= 0 || !record.company) continue;
-        const docRef = transactionsCollection.doc();
-        batch.set(docRef, record);
-        newLocalTransactions.push({ id: docRef.id, ...record });
-        successCount++;
-    }
-
-    try {
-        await batch.commit();
-        transactions.push(...newLocalTransactions);
-        document.getElementById('bulk-upload-status').innerText = `총 ${records.length}건 중 ${successCount}건 처리 성공.`;
-        updateAll();
-    } catch (error) {
-        console.error("대량 등록 오류:", error);
-        document.getElementById('bulk-upload-status').innerText = `오류 발생: ${error.message}`;
-    }
-}
-
-async function deleteSelectedTransactions() {
-    const selectedIds = Array.from(document.querySelectorAll('.transaction-checkbox:checked')).map(cb => cb.value);
-    if (selectedIds.length === 0) return alert('삭제할 항목을 선택하세요.');
-    if (!confirm(`선택된 ${selectedIds.length}개의 거래를 삭제하시겠습니까?`)) return;
-
-    try {
-        // --- 🔶 여기가 이번 문제의 최종 해결책입니다 🔶 ---
-        // 만약 삭제하려는 항목 중에 '현재 수정 중인 항목'이 포함되어 있다면,
-        if (editingTransactionId && selectedIds.includes(editingTransactionId)) {
-            // 수정 폼을 깨끗하게 초기화하고 수정 상태를 해제합니다.
-            cancelTransactionEdit();
-        }
-        // --- 🔶 수정 끝 🔶 ---
-
-        const batch = db.batch();
-        selectedIds.forEach(id => batch.delete(transactionsCollection.doc(id)));
-        await batch.commit();
-
-        // 이제 실시간 리스너(onSnapshot)가 삭제를 감지하고 화면을 자동으로
-        // 갱신하므로, 아래 두 줄의 수동 코드(로컬 데이터 처리)는 필요 없습니다.
-        // transactions = transactions.filter(t => !selectedIds.includes(t.id));
-        // updateAll();
-        
-        alert(`${selectedIds.length}개의 거래가 삭제되었습니다.`);
-    } catch (error) {
-        console.error("데이터 삭제 오류:", error);
-        alert("데이터를 삭제하는 중 오류가 발생했습니다.");
-    }
-}
-
-
-async function ic_processCostSheet(isEdit) {
-    const sheetData = {
-        shipper: document.getElementById('form-shipper').value.trim(),
-        terms: document.getElementById('form-terms').value.trim(),
-        origin: document.getElementById('form-origin').value.trim(),
-        method: document.getElementById('form-method').value.trim(),
-        etd: document.getElementById('form-etd').value.trim(),
-        eta: document.getElementById('form-eta').value.trim(),
-        cbm: document.getElementById('form-cbm').value.trim(),
-        packing: document.getElementById('form-packing').value.trim(),
-        exchangeRate: document.getElementById('form-exchange-rate').value,
-        shippingFee: document.getElementById('form-shipping-fee').value,
-        tariffRate: document.getElementById('form-tariff-rate').value,
-        tariffAmount: document.getElementById('form-tariff-amount').value,
-        vatAmount: document.getElementById('form-vat-amount').value,
-        forwarderFee1: document.getElementById('form-forwarder-fee1').value,
-        forwarderFee2: document.getElementById('form-forwarder-fee2').value,
-        forwarderFee3: document.getElementById('form-forwarder-fee3').value,
-        items: []
-    };
-    
-    document.querySelectorAll('#item-tbody tr').forEach(row => {
-        const item = {
-            name: row.querySelector('.item-name').value.trim(),
-            lot: row.querySelector('.item-lot').value.trim(),
-            qty: ic_pFloat(row.querySelector('.item-qty').value),
-            unit: row.querySelector('.item-unit').value.trim(),
-            price: ic_pFloat(row.querySelector('.item-price').value),
-        };
-        if (item.name && item.qty > 0) sheetData.items.push(item);
-    });
-
-    if (!sheetData.shipper || !sheetData.etd || ic_pFloat(sheetData.exchangeRate) === 0 || sheetData.items.length === 0) {
-        return alert('필수 항목(Shipper, ETD, 적용환율, 품목 정보)을 모두 입력해주세요.');
-    }
-    
-    let totalInvoiceValue = sheetData.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
-    const exchangeRate = ic_pFloat(sheetData.exchangeRate);
-    const invoiceKrw = totalInvoiceValue * exchangeRate;
-    const totalMaterialCost = invoiceKrw + ic_pFloat(sheetData.shippingFee);
-    const tariffCost = ic_pFloat(sheetData.tariffAmount) > 0 ? ic_pFloat(sheetData.tariffAmount) : invoiceKrw * (ic_pFloat(sheetData.tariffRate) / 100);
-    const totalForwarderFee = ic_pFloat(sheetData.forwarderFee1) + ic_pFloat(sheetData.forwarderFee2) + ic_pFloat(sheetData.forwarderFee3);
-    const grandTotal = totalMaterialCost + tariffCost + totalForwarderFee;
-    sheetData.items.forEach(item => {
-        item.unitCost = (totalInvoiceValue > 0 && item.qty > 0) ? (grandTotal * ((item.qty * item.price) / totalInvoiceValue)) / item.qty : 0;
-    });
-
-    try {
-        if (isEdit) {
-            await importCostSheetsCollection.doc(ic_editingId).update(sheetData);
-            const index = ic_costSheets.findIndex(s => s.id === ic_editingId);
-            if (index > -1) ic_costSheets[index] = { id: ic_editingId, ...sheetData };
-            alert('수정되었습니다.');
-        } else {
-            const docRef = await importCostSheetsCollection.add(sheetData);
-            ic_costSheets.push({ id: docRef.id, ...sheetData });
-            alert('등록되었습니다.');
-        }
-        ic_renderList();
-        ic_clearForm();
-    } catch (error) {
-        console.error("정산서 저장 오류:", error);
-        alert("정산서를 저장하는 중 오류가 발생했습니다.");
-    }
-}
 
 async function ic_deleteSelectedSheets() {
     const selectedIds = Array.from(document.querySelectorAll('.sheet-checkbox:checked')).map(cb => cb.value);
@@ -1510,6 +1509,8 @@ window.loadBackupFile = loadBackupFile;
 // [신규] 청구서 헬퍼 함수
 window.calculateRowAndTotal = calculateRowAndTotal;
 window.calculateBillTotals = calculateBillTotals;
+
+
 
 
 

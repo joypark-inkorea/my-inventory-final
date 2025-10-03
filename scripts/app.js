@@ -108,9 +108,10 @@ function bindEventListeners() {
      'filter-tran-spec', 'filter-tran-lot', 'filter-tran-company']
     .forEach(id => document.getElementById(id).addEventListener('input', applyFiltersAndRender));
 
-    ['filter-sales-month', 'filter-sales-company', 'filter-sales-brand']
+    ['filter-sales-start-date', 'filter-sales-end-date', 'filter-sales-company', 'filter-sales-brand']
     .forEach(id => document.getElementById(id).addEventListener('input', generateSalesReport));
-    
+  
+
     document.getElementById('tran-brand').addEventListener('blur', autoFillItemDetails);
     document.getElementById('tran-lot').addEventListener('blur', autoFillItemDetails);
 }
@@ -459,9 +460,9 @@ function resetTransactionFilters() {
 }
 
 function resetSalesReportFilters() {
-document.getElementById('filter-sales-start-date').value = ''; // 시작일 초기화
-document.getElementById('filter-sales-end-date').value = '';   // 종료일 초기화
-['filter-sales-company', 'filter-sales-brand'].forEach(id => document.getElementById(id).value = '');
+ // [수정] 새로운 기간 필드를 초기화하도록 변경합니다.
+  ['filter-sales-start-date', 'filter-sales-end-date', 'filter-sales-company', 'filter-sales-brand']
+  .forEach(id => document.getElementById(id).value = '');
     generateSalesReport();
 }
 
@@ -1220,3 +1221,4 @@ window.ic_processBulkUpload = ic_processBulkUpload;
 window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
+

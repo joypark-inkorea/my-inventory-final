@@ -118,27 +118,25 @@ function bindEventListeners() {
 
 // ================== 2. Firebase 데이터 처리 (CRUD) ==================
 
-// 기존 processTransaction 함수를 아래 코드로 전체 교체하세요.
-
+/**
+ * * [수정됨] 입출고 내역 수정 오류 해결 (2025.10.03)
+ * 업데이트 전 Firestore 문서를 먼저 확인하여 안정성 강화
+ */
 async function processTransaction(isEdit) {
-    // 1. 모든 입력값을 안전하게 읽어옵니다.
     const type = document.getElementById('transaction-type').value;
     const date = document.getElementById('transaction-date').value;
     const brand = document.getElementById('tran-brand').value.trim();
     const lot = document.getElementById('tran-lot').value.trim();
     const company = document.getElementById('transaction-company').value.trim();
     
-    // 2. 숫자 필드는 Number()로 명시적으로 변환하여 타입 오류를 방지합니다.
     const weight = Number(document.getElementById('transaction-weight').value) || 0;
     const unitPrice = Number(document.getElementById('transaction-unit-price').value) || 0;
     const otherCosts = Number(document.getElementById('transaction-other-costs').value) || 0;
 
-    // 3. 필수 항목을 검증합니다.
     if (!date || !brand || !lot || weight <= 0 || !company) {
         return alert('필수 항목(날짜, 브랜드, LOT, 중량, 업체)을 모두 입력해주세요.');
     }
 
-    // 4. Firestore에 저장할 최종 객체를 생성합니다.
     const record = {
         type: type,
         date: date,
@@ -156,11 +154,20 @@ async function processTransaction(isEdit) {
     };
 
     try {
-        if (isEdit && editingTransactionId) { // editingTransactionId가 있는지 명확히 확인
-            await transactionsCollection.doc(editingTransactionId).update(record);
+        if (isEdit && editingTransactionId) {
+            const docRef = transactionsCollection.doc(editingTransactionId);
+            const doc = await docRef.get();
+
+            if (!doc.exists) {
+                alert('오류: 수정하려는 데이터가 데이터베이스에 존재하지 않습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+                console.error("수정 실패: 문서 ID를 찾을 수 없음", editingTransactionId);
+                cancelTransactionEdit();
+                return;
+            }
+
+            await docRef.update(record);
             const index = transactions.findIndex(t => t.id === editingTransactionId);
             if (index > -1) {
-                // 로컬 데이터도 업데이트
                 transactions[index] = { id: editingTransactionId, ...record };
             }
             alert('거래내역이 성공적으로 수정되었습니다.');
@@ -170,7 +177,6 @@ async function processTransaction(isEdit) {
             alert('입출고 내역이 성공적으로 등록되었습니다.');
         }
 
-        // UI 업데이트 및 폼 초기화
         updateAll();
         cancelTransactionEdit();
         
@@ -180,8 +186,6 @@ async function processTransaction(isEdit) {
         alert(`데이터를 처리하는 중 오류가 발생했습니다. 다시 시도해주세요.\n\n오류: ${error.message}`);
     }
 }
-
-
 
 async function processBulkTransactions(records) {
     const batch = db.batch();
@@ -1224,36 +1228,76 @@ function ic_processBulkUpload() {
 }
 
 
-// ================== 4-1. 청구서 관련 기능 (새로 추가) ==================
+// ================== 4-1. 청구서 관련 기능 (수정됨) ==================
 
 /**
- * 새로운 빈 청구서 항목(행)을 추가하는 함수
+ * [신규] 청구서의 특정 행(row)과 전체 합계를 다시 계산하는 함수
+ * @param {HTMLElement} cellElement 수정된 셀(td) 요소
+ */
+function calculateRowAndTotal(cellElement) {
+    const row = cellElement.closest('tr');
+    if (!row) return;
+
+    const quantity = parseFloat(row.cells[6].innerText.replace(/,/g, '')) || 0;
+    const unitPrice = parseFloat(row.cells[7].innerText.replace(/,/g, '')) || 0;
+    const subtotal = quantity * unitPrice;
+
+    // 해당 행의 합계 업데이트
+    row.cells[8].innerText = Math.round(subtotal).toLocaleString();
+
+    // 전체 합계 다시 계산
+    calculateBillTotals();
+}
+
+/**
+ * [수정됨] 청구서의 합계와 부가세를 다시 계산하여 화면에 표시하는 함수
+ */
+function calculateBillTotals() {
+    const tbody = document.querySelector('#bill-items-table tbody');
+    if (!tbody) return;
+
+    let subtotal = 0;
+    tbody.querySelectorAll('tr').forEach(row => {
+        // 각 행의 합계(8번째 셀) 값을 읽어와 더함
+        const rowTotal = parseFloat(row.cells[8].innerText.replace(/,/g, '')) || 0;
+        subtotal += rowTotal;
+    });
+
+    const vat = subtotal * 0.1;
+    const total = subtotal + vat;
+
+    // 화면에 계산된 값 업데이트
+    document.getElementById('bill-subtotal').innerText = Math.round(subtotal).toLocaleString();
+    document.getElementById('bill-vat').innerText = Math.round(vat).toLocaleString();
+    document.getElementById('bill-total').innerText = Math.round(total).toLocaleString();
+}
+
+/**
+ * [수정됨] 청구서에 새로운 빈 항목(행)을 추가하고, 수정 가능하도록 하는 함수
  */
 function addBillItemRow() {
     const tbody = document.querySelector('#bill-items-table tbody');
     if (!tbody) return;
     const newRow = tbody.insertRow();
-    // 모든 셀을 편집 가능하게 하고, 마지막에 삭제 버튼 추가
+    // contenteditable 속성을 주어 바로 수정 가능하게 함
     newRow.innerHTML = `
         <td contenteditable="true"></td>
         <td contenteditable="true"></td>
         <td contenteditable="true"></td>
         <td contenteditable="true"></td>
         <td contenteditable="true"></td>
+        <td contenteditable="true">kg</td>
+        <td contenteditable="true" oninput="calculateRowAndTotal(this)">0</td>
+        <td contenteditable="true" oninput="calculateRowAndTotal(this)">0</td>
+        <td class="row-total">0</td>
         <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        
+        <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculateBillTotals();">삭제</button></td>
     `;
 }
 
 /**
- * 편집 가능한 청구서를 생성하는 메인 함수
+ * [수정됨] 편집 가능한 청구서를 생성하는 메인 함수
  */
-
-// 기존 generateBill 함수를 아래 코드로 전체 교체하세요.
-
 function generateBill() {
     document.getElementById('invoice-wrapper').style.display = 'none';
 
@@ -1271,8 +1315,10 @@ function generateBill() {
                t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
     }).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // 각 셀에 oninput="calculateBillTotals()" 이벤트를 추가하여 수정 시 합계가 자동 재계산되도록 함
-    const itemsHtml = filtered.map(t => `
+    // 각 셀에 oninput="calculateRowAndTotal(this)" 이벤트를 추가
+    const itemsHtml = filtered.map(t => {
+        const subtotal = t.weight * t.unitPrice;
+        return `
         <tr>
             <td contenteditable="true">${t.date}</td>
             <td contenteditable="true">${t.brand || ''}</td>
@@ -1280,12 +1326,13 @@ function generateBill() {
             <td contenteditable="true">${t.spec || ''}</td>
             <td contenteditable="true">${t.lot || ''}</td>
             <td contenteditable="true">kg</td>
-            <td contenteditable="true" oninput="calculateBillTotals()">${t.weight.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-            <td contenteditable="true" oninput="calculateBillTotals()">${t.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${t.weight.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${t.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td class="row-total">${Math.round(subtotal).toLocaleString()}</td>
             <td contenteditable="true">${t.notes || ''}</td>
             <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculateBillTotals();">삭제</button></td>
         </tr>
-    `).join('');
+    `}).join('');
     
     const billWrapper = document.getElementById('bill-wrapper');
 
@@ -1305,21 +1352,21 @@ function generateBill() {
                 <table id="bill-items-table">
                     <thead>
                         <tr>
-                            <th>날짜</th><th>브랜드</th><th>품목</th><th>스펙</th><th>LOT</th><th>단위</th><th>수량</th><th>단가</th><th>비고</th><th style="width: 60px;">관리</th>
+                            <th>날짜</th><th>브랜드</th><th>품목</th><th>스펙</th><th>LOT</th><th>단위</th><th>수량</th><th>단가</th><th>합계</th><th>비고</th><th style="width: 60px;">관리</th>
                         </tr>
                     </thead>
                     <tbody>${itemsHtml}</tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="8" style="text-align: right; font-weight: bold;">공급가액 (합계)</td>
+                            <td colspan="9" style="text-align: right; font-weight: bold;">공급가액 (합계)</td>
                             <td colspan="2" id="bill-subtotal" style="text-align: right; font-weight: bold;">0</td>
                         </tr>
                         <tr>
-                            <td colspan="8" style="text-align: right; font-weight: bold;">부가가치세 (VAT)</td>
+                            <td colspan="9" style="text-align: right; font-weight: bold;">부가가치세 (VAT)</td>
                             <td colspan="2" id="bill-vat" style="text-align: right; font-weight: bold;">0</td>
                         </tr>
                         <tr>
-                            <td colspan="8" style="text-align: right; font-weight: bold; background-color: #f2f2f2;">총 청구금액</td>
+                            <td colspan="9" style="text-align: right; font-weight: bold; background-color: #f2f2f2;">총 청구금액</td>
                             <td colspan="2" id="bill-total" style="text-align: right; font-weight: bold; background-color: #f2f2f2;">0</td>
                         </tr>
                     </tfoot>
@@ -1334,7 +1381,6 @@ function generateBill() {
     // 청구서가 생성된 직후, 초기 합계를 계산
     calculateBillTotals(); 
 }
-
 
 /**
  * 청구서 인쇄 함수
@@ -1409,54 +1455,6 @@ window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
 
-// ================== 청구서 기능 강화 헬퍼 함수 ==================
-
-/**
- * 청구서의 합계와 부가세를 다시 계산하여 화면에 표시하는 함수
- */
-function calculateBillTotals() {
-    const tbody = document.querySelector('#bill-items-table tbody');
-    if (!tbody) return;
-
-    let subtotal = 0;
-    tbody.querySelectorAll('tr').forEach(row => {
-        const quantity = parseFloat(row.cells[6].innerText.replace(/,/g, '')) || 0;
-        const unitPrice = parseFloat(row.cells[7].innerText.replace(/,/g, '')) || 0;
-        subtotal += quantity * unitPrice;
-    });
-
-    const vat = subtotal * 0.1;
-    const total = subtotal + vat;
-
-    // 화면에 계산된 값 업데이트
-    document.getElementById('bill-subtotal').innerText = Math.round(subtotal).toLocaleString();
-    document.getElementById('bill-vat').innerText = Math.round(vat).toLocaleString();
-    document.getElementById('bill-total').innerText = Math.round(total).toLocaleString();
-}
-
-/**
- * 청구서에 새로운 빈 항목(행)을 추가하고, 수정 가능하도록 하는 함수
- */
-function addBillItemRow() {
-    const tbody = document.querySelector('#bill-items-table tbody');
-    if (!tbody) return;
-    const newRow = tbody.insertRow();
-    // contenteditable 속성을 주어 바로 수정 가능하게 함
-    newRow.innerHTML = `
-        <td contenteditable="true" oninput="calculateBillTotals()"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true"></td>
-        <td contenteditable="true">kg</td>
-        <td contenteditable="true" oninput="calculateBillTotals()">0</td>
-        <td contenteditable="true" oninput="calculateBillTotals()">0</td>
-        <td contenteditable="true"></td>
-        <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculateBillTotals();">삭제</button></td>
-    `;
-}
-
-
-
-
-
+// [신규] 청구서 헬퍼 함수
+window.calculateRowAndTotal = calculateRowAndTotal;
+window.calculateBillTotals = calculateBillTotals;

@@ -86,8 +86,8 @@ tfoot td { text-align: right; }
     overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center;
 }
 .modal-content {
-    background-color: #fefefe; margin: auto; padding: 20px; border: 1px solid #888;
-    width: 80%; max-width: 600px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); position: relative;
+   background-color: #fefefe; margin: auto; padding: 30px; border: 1px solid #888;
+   width: 80%; max-width: 600px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); position: relative;
 }
 .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
 .close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
@@ -198,4 +198,10 @@ tfoot td { text-align: right; }
 /* 날짜가 선택되면 실제 날짜 텍스트 보여주기 */
 .date-placeholder:valid {
     color: var(--dark-gray);
+}
+
+/* 청구서 컨트롤 버튼 오른쪽 정렬 */
+#bill-controls {
+    text-align: right;
+    margin-bottom: 10px;
 }

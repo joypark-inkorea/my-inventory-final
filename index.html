@@ -174,7 +174,15 @@
             <div class="section">
                 <h3>수입 정산 내역</h3>
                 <div class="filter-group">
-                    <input type="number" id="filter-year" placeholder="년도 검색 (YYYY)" oninput="ic_renderList()">
+                <label for="filter-ic-start-date">ETD 시작일:</label>
+                <input type="date" id="filter-ic-start-date" oninput="ic_renderList()">
+                 <label for="filter-ic-end-date">ETD 종료일:</label>
+                 <input type="date" id="filter-ic-end-date" oninput="ic_renderList()">
+                     <input type="text" id="filter-shipper" placeholder="Shipper 검색" oninput="ic_renderList()">
+                     <input type="text" id="filter-item" placeholder="품목 검색" oninput="ic_renderList()">
+                     <input type="text" id="filter-lot" placeholder="LOT 검색" oninput="ic_renderList()">
+
+   
                     <input type="text" id="filter-shipper" placeholder="Shipper 검색" oninput="ic_renderList()">
                     <input type="text" id="filter-item" placeholder="품목 검색" oninput="ic_renderList()">
                     <input type="text" id="filter-lot" placeholder="LOT 검색" oninput="ic_renderList()">
@@ -231,7 +239,11 @@
             <div class="section">
                 <h3>매출 보고서 필터</h3>
                 <div class="filter-group">
-                    <input type="month" id="filter-sales-month" placeholder="월별">
+                <label for="filter-sales-start-date">시작일:</label>
+                <input type="date" id="filter-sales-start-date">
+                <label for="filter-sales-end-date">종료일:</label>
+                <input type="date" id="filter-sales-end-date">
+
                     <input type="text" id="filter-sales-company" placeholder="업체 검색">
                     <input type="text" id="filter-sales-brand" placeholder="브랜드 검색">
                 </div>
@@ -353,9 +365,3 @@
     <script src="scripts/app.js"></script>
 </body>
 </html>
-
-
-
-
-
-

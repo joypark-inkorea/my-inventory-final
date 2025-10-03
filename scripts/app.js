@@ -150,8 +150,17 @@ async function processTransaction(isEdit) {
             transactions.push({ id: docRef.id, ...record });
             alert('입출고 내역이 등록되었습니다.');
         }
-        updateAll();
-        cancelTransactionEdit();
+
+        // UI 업데이트 로직을 별도의 try-catch로 감싸 안정성 확보
+        try {
+            updateAll();
+            cancelTransactionEdit();
+        } catch (uiError) {
+            console.error("UI 업데이트 중 오류 발생:", uiError);
+            alert("데이터 저장은 완료되었으나, 화면을 새로고침하는 중 문제가 발생했습니다. 페이지를 새로고침해주세요.");
+        }
+
+
     } catch (error) {
         console.error("데이터 저장 오류:", error);
         alert("데이터를 저장하는 중 오류가 발생했습니다.");
@@ -397,6 +406,11 @@ function showTab(tabName) {
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
+   
+    // 거래명세표와 청구서 wrapper를 확실히 숨깁니다.
+    document.getElementById('invoice-wrapper').style.display = 'none';
+    document.getElementById('bill-wrapper').style.display = 'none';
+
     document.getElementById(tabName).classList.add('active');
     cancelTransactionEdit();
     ic_clearForm();
@@ -1198,7 +1212,7 @@ function addBillItemRow() {
         <td contenteditable="true"></td>
         <td contenteditable="true"></td>
         <td contenteditable="true"></td>
-        <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove();">-</button></td>
+        
     `;
 }
 
@@ -1237,8 +1251,7 @@ function generateBill() {
             <td contenteditable="true">${t.weight.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
             <td contenteditable="true">${t.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
             <td contenteditable="true">${t.notes || ''}</td>
-            <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove();">-</button></td>
-        </tr>
+            </tr>
     `).join('');
 
     const today = new Date().toISOString().split('T')[0];
@@ -1256,8 +1269,7 @@ function generateBill() {
                 <thead>
                     <tr>
                         <th>날짜</th><th>브랜드</th><th>품목</th><th>스펙</th><th>LOT</th><th>단위</th><th>수량</th><th>단가</th><th>비고</th>
-                        <th><button class="btn btn-success btn-sm" onclick="addBillItemRow()">+</button></th>
-                    </tr>
+                       </tr>
                 </thead>
                 <tbody>${itemsHtml}</tbody>
             </table>

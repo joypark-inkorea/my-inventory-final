@@ -205,3 +205,24 @@ tfoot td { text-align: right; }
     text-align: right;
     margin-bottom: 10px;
 }
+
+/* 청구서 숫자 오른쪽 정렬 및 스타일 추가 */
+#bill-items-table .row-total,
+#bill-items-table td:nth-child(7), /* 수량 */
+#bill-items-table td:nth-child(8)  /* 단가 */
+{
+    text-align: right;
+    padding-right: 10px;
+}
+#bill-items-table th:nth-child(7),
+#bill-items-table th:nth-child(8),
+#bill-items-table th:nth-child(9)
+{
+    text-align: center;
+}
+#bill-items-table .row-total {
+    font-weight: bold;
+    background-color: #f8f9fa;
+}
+
+

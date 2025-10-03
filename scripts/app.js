@@ -112,8 +112,6 @@ function loadAllDataFromFirebase() {
 }
 
 
-
-
 function initializeAppUI() {
     console.log("UI 초기화를 시작합니다...");
     const today = new Date().toISOString().slice(0, 10);
@@ -1499,6 +1497,7 @@ window.loadBackupFile = loadBackupFile;
 // [신규] 청구서 헬퍼 함수
 window.calculateRowAndTotal = calculateRowAndTotal;
 window.calculateBillTotals = calculateBillTotals;
+
 
 
 

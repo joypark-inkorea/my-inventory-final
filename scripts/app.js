@@ -1295,7 +1295,7 @@ function generateBill() {
                     </tfoot>
                 </table>
             </div>
-            <div class="invoice-footer"><table><tr><td style="width:15%; text-align:center; font-weight:bold; background-color:#f2f2f2;">비 고</td><td contenteditable="true" style="height: 80px; text-align:left; vertical-align:top; padding: 5px;">은행정보: [은행명] [계좌번호] [예금주]</td></tr></table></div>
+            <div class="invoice-footer"><table><tr><td style="width:15%; text-align:center; font-weight:bold; background-color:#f2f2f2;">비 고</td><td contenteditable="true" style="height: 80px; text-align:left; vertical-align:top; padding: 5px;">은행정보: 하나은행 / 이선용(그루텍스) 221-890021-48404</td></tr></table></div>
             <div class="invoice-company-info" style="margin-top: 30px; padding: 15px; border-top: 2px solid #333; text-align: center;"><div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><span style="font-size: 18px; font-weight: bold; letter-spacing: 3px;">그루텍스</span><span style="font-size: 16px; margin-left: 10px;">| GROOOTEX</span></div><div style="font-size: 11px; color: #333; line-height: 1.4;"><p style="font-weight: bold; margin-bottom: 5px;">#1002, 10F, Backsang building, 397-15, Nohae-ro, Dobong-gu, Seoul, Korea (01415)</p><p>Tel: 82 2 997 8566  Fax: 82 2 997 4888  e-mail: groootex@groootex.com</p></div></div>
         </div>
     `;
@@ -1364,4 +1364,5 @@ window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
 window.calculateRowAndTotal = calculateRowAndTotal;
 window.calculateBillTotals = calculateBillTotals;
+
 

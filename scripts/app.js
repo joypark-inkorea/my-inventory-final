@@ -1178,6 +1178,121 @@ function ic_processBulkUpload() {
 }
 
 
+// ================== 4-1. 청구서 관련 기능 (새로 추가) ==================
+
+/**
+ * 새로운 빈 청구서 항목(행)을 추가하는 함수
+ */
+function addBillItemRow() {
+    const tbody = document.querySelector('#bill-items-table tbody');
+    if (!tbody) return;
+    const newRow = tbody.insertRow();
+    // 모든 셀을 편집 가능하게 하고, 마지막에 삭제 버튼 추가
+    newRow.innerHTML = `
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td contenteditable="true"></td>
+        <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove();">-</button></td>
+    `;
+}
+
+/**
+ * 편집 가능한 청구서를 생성하는 메인 함수
+ */
+function generateBill() {
+    // 다른 명세표는 숨김 처리
+    document.getElementById('invoice-wrapper').style.display = 'none';
+
+    // 필터 값 가져오기
+    const recipientCompany = document.getElementById('recipient-company').value.trim();
+    const startDate = document.getElementById('invoice-start-date').value;
+    const endDate = document.getElementById('invoice-end-date').value;
+    
+    if (!recipientCompany || !startDate || !endDate) {
+        return alert('(*) 필수 항목(회사명, 날짜 범위)을 입력해주세요.');
+    }
+    
+    // '출고' 내역을 기준으로 데이터 필터링 (청구서의 일반적인 기준)
+    const filtered = transactions.filter(t => {
+        return new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) &&
+               t.type === '출고' &&
+               t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
+    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // 필터링된 데이터를 기반으로 편집 가능한 HTML 행 생성
+    const itemsHtml = filtered.map(t => `
+        <tr>
+            <td contenteditable="true">${t.date}</td>
+            <td contenteditable="true">${t.brand || ''}</td>
+            <td contenteditable="true">${t.category || ''}</td>
+            <td contenteditable="true">${t.spec || ''}</td>
+            <td contenteditable="true">${t.lot || ''}</td>
+            <td contenteditable="true">kg</td>
+            <td contenteditable="true">${t.weight.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td contenteditable="true">${t.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td contenteditable="true">${t.notes || ''}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove();">-</button></td>
+        </tr>
+    `).join('');
+
+    const today = new Date().toISOString().split('T')[0];
+    const billContentEl = document.getElementById('bill-content');
+
+    // 청구서의 전체 HTML 구조
+    billContentEl.innerHTML = `
+        <div class="invoice-header"><h2 class="invoice-title">청 구 서</h2></div>
+        <div class="invoice-info">
+            <div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>자</td><td class="label-td">사업자번호</td><td>101-02-35223</td></tr><tr><td class="label-td">상호</td><td>그루텍스</td></tr><tr><td class="label-td">주소</td><td>서울시 도봉구 노해로 397-15 백상빌딩 1005호</td></tr></table></div>
+            <div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>받<br>는<br>자</td><td class="label-td">사업자번호</td><td contenteditable="true">${document.getElementById('recipient-reg-no').value}</td></tr><tr><td class="label-td">상호</td><td contenteditable="true">${recipientCompany}</td></tr><tr><td class="label-td">주소</td><td contenteditable="true">${document.getElementById('recipient-address').value}</td></tr></table></div>
+        </div>
+        <div class="invoice-items">
+            <table id="bill-items-table">
+                <thead>
+                    <tr>
+                        <th>날짜</th><th>브랜드</th><th>품목</th><th>스펙</th><th>LOT</th><th>단위</th><th>수량</th><th>단가</th><th>비고</th>
+                        <th><button class="btn btn-success btn-sm" onclick="addBillItemRow()">+</button></th>
+                    </tr>
+                </thead>
+                <tbody>${itemsHtml}</tbody>
+            </table>
+        </div>
+        <div class="invoice-footer"><table><tr><td style="width:15%; text-align:center; font-weight:bold; background-color:#f2f2f2;">비 고</td><td contenteditable="true" style="height: 80px; text-align:left; vertical-align:top; padding: 5px;"></td></tr></table></div>
+        <div class="invoice-company-info" style="margin-top: 30px; padding: 15px; border-top: 2px solid #333; text-align: center;"><div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><span style="font-size: 18px; font-weight: bold; letter-spacing: 3px;">그루텍스</span><span style="font-size: 16px; margin-left: 10px;">| GROOOTEX</span></div><div style="font-size: 11px; color: #333; line-height: 1.4;"><p style="font-weight: bold; margin-bottom: 5px;">#1002, 10F, Backsang building, 397-15, Nohae-ro, Dobong-gu, Seoul, Korea (01415)</p><p>Tel: 82 2 997 8566  Fax: 82 2 997 4888  e-mail: groootex@groootex.com</p></div></div>
+    `;
+    
+    document.getElementById('bill-wrapper').style.display = 'block';
+}
+
+
+/**
+ * 청구서 인쇄 함수
+ */
+function printBill() {
+    const billWrapper = document.getElementById('bill-wrapper');
+    if (billWrapper.style.display === 'none') return; // 청구서가 보일 때만 인쇄
+    window.print();
+}
+
+/**
+ * 청구서 PDF 저장 함수
+ */
+function saveBillAsPDF() {
+    const billWrapper = document.getElementById('bill-wrapper');
+    if (billWrapper.style.display === 'none') return; // 청구서가 보일 때만 저장
+    
+    html2pdf(document.getElementById('bill-content'), {
+        margin: 10, filename: '청구서.pdf', image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    });
+}
+
+
 
 // ================== 5. HTML onclick과 함수 연결 ==================
 window.showTab = showTab;
@@ -1199,6 +1314,12 @@ window.showItemHistoryInTransactionTab = showItemHistoryInTransactionTab;
 window.generateInvoice = generateInvoice;
 window.printInvoice = printInvoice;
 window.saveInvoiceAsPDF = saveInvoiceAsPDF;
+
+window.generateBill = generateBill;
+window.addBillItemRow = addBillItemRow;
+window.printBill = printBill;
+window.saveBillAsPDF = saveBillAsPDF;
+
 window.generateSalesReport = generateSalesReport;
 window.resetSalesReportFilters = resetSalesReportFilters;
 window.exportSalesReportCSV = exportSalesReportCSV;

@@ -254,13 +254,14 @@
             <div class="section">
                 <h3>매출 보고서 필터</h3>
                 <div class="filter-group">
-                <input type="date" class="date-placeholder" id="filter-sales-start-date" placeholder="기간 설정 시작일">
-                <input type="date" class="date-placeholder" id="filter-sales-end-date" placeholder="기간 설정 종료일">
-                               
-
+                    <input type="date" class="date-placeholder" id="filter-sales-start-date" placeholder="기간 설정 시작일">
+                    <input type="date" class="date-placeholder" id="filter-sales-end-date" placeholder="기간 설정 종료일">
                     <input type="text" id="filter-sales-company" placeholder="업체 검색">
                     <input type="text" id="filter-sales-brand" placeholder="브랜드 검색">
+                    <input type="text" id="filter-sales-category" placeholder="품목 검색">
                 </div>
+
+                
                 <button class="btn btn-primary" onclick="generateSalesReport()">보고서 생성</button>
                 <button class="btn btn-secondary" onclick="resetSalesReportFilters()">필터 초기화</button>
             </div>
@@ -379,6 +380,7 @@
     <script src="scripts/app.js"></script>
 </body>
 </html>
+
 
 
 

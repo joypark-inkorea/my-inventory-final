@@ -459,7 +459,9 @@ function resetTransactionFilters() {
 }
 
 function resetSalesReportFilters() {
-    ['filter-sales-month', 'filter-sales-company', 'filter-sales-brand'].forEach(id => document.getElementById(id).value = '');
+document.getElementById('filter-sales-start-date').value = ''; // 시작일 초기화
+document.getElementById('filter-sales-end-date').value = '';   // 종료일 초기화
+['filter-sales-company', 'filter-sales-brand'].forEach(id => document.getElementById(id).value = '');
     generateSalesReport();
 }
 
@@ -743,16 +745,24 @@ function saveInvoiceAsPDF() {
 }
 
 function generateSalesReport() {
-    const monthFilter = document.getElementById('filter-sales-month').value;
-    const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
+   // 기간 필터 값 가져오기
+   const startDate = document.getElementById('filter-sales-start-date').value;
+   const endDate = document.getElementById('filter-sales-end-date').value;
+     const companyFilter = document.getElementById('filter-sales-company').value.toLowerCase();
     const brandFilter = document.getElementById('filter-sales-brand').value.toLowerCase();
     
-    const outgoingTransactions = transactions.filter(t => 
-        t.type === '출고' && 
-        (!monthFilter || t.date.startsWith(monthFilter)) &&
+const outgoingTransactions = transactions.filter(t => {
+const transactionDate = new Date(t.date);
+const startCheck = !startDate || transactionDate >= new Date(startDate);
+const endCheck = !endDate || transactionDate <= new Date(endDate);
+return t.type === '출고' && startCheck && endCheck &&
+    
+
         (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
-        (!brandFilter || t.brand.toLowerCase().includes(brandFilter))
-    );
+        (!brandFilter || t.brand.toLowerCase().includes(brandFilter));
+    });
+
+
 
     const tbody = document.getElementById('sales-report-tbody');
     tbody.innerHTML = '';
@@ -844,7 +854,8 @@ function ic_clearForm() {
 }
 
 function ic_resetFilters() {
-    document.getElementById('filter-year').value = '';
+    document.getElementById('filter-ic-start-date').value = ''; // 시작일 초기화
+    document.getElementById('filter-ic-end-date').value = '';   // 종료일 초기화
     document.getElementById('filter-shipper').value = '';
     document.getElementById('filter-item').value = '';
     document.getElementById('filter-lot').value = '';
@@ -894,16 +905,27 @@ function ic_calculateAll() {
 function ic_renderList() {
     const tbody = document.getElementById('cost-list-tbody');
     tbody.innerHTML = '';
-    const filterYear = document.getElementById('filter-year').value;
-    const filterShipper = document.getElementById('filter-shipper').value.toLowerCase();
+    // 기간 필터 값 가져오기
+   const filterStartDate = document.getElementById('filter-ic-start-date').value;
+   const filterEndDate = document.getElementById('filter-ic-end-date').value;
+   const filterShipper = document.getElementById('filter-shipper').value.toLowerCase();
     const filterItem = document.getElementById('filter-item').value.toLowerCase();
     const filterLot = document.getElementById('filter-lot').value.toLowerCase();
 
-    const filtered = ic_costSheets.filter(sheet => 
-        (!filterYear || (sheet.etd && sheet.etd.substring(0, 4).includes(filterYear))) &&
-        sheet.shipper.toLowerCase().includes(filterShipper) &&
-        (!filterItem || sheet.items.some(item => (item.name || item.itemName).toLowerCase().includes(filterItem))) &&
-        (!filterLot || sheet.items.some(item => item.lot.toLowerCase().includes(filterLot)))
+ const filtered = ic_costSheets.filter(sheet => {
+     // ETD 날짜를 기준으로 필터링
+ const etdDate = sheet.etd ? new Date(sheet.etd) : null;
+ const startCheck = !filterStartDate || (etdDate && etdDate >= new Date(filterStartDate));
+ const endCheck = !filterEndDate || (etdDate && etdDate <= new Date(filterEndDate));
+
+ return startCheck && endCheck &&
+ sheet.shipper.toLowerCase().includes(filterShipper) &&
+     (!filterItem || sheet.items.some(item => (item.name || item.itemName).toLowerCase().includes(filterItem))) &&
+     (!filterLot || sheet.items.some(item => item.lot.toLowerCase().includes(filterLot)));
+}  
+
+
+
     ).sort((a,b) => (b.etd || '').localeCompare(a.etd || ''));
 
     filtered.forEach(sheet => {

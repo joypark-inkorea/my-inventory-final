@@ -48,12 +48,12 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     }).catch(error => console.error('로그아웃 실패:', error));
 });
 
-// [핵심 수정] 실시간 데이터 변경을 감지하는 리스너 설정
+// [오류 수정] orderBy 기능을 제거하여 색인(Index) 문제 해결
 function setupRealtimeListeners() {
     console.log("Firestore 실시간 리스너를 시작합니다...");
 
-    // 입출고 내역 실시간 감지
-    transactionsCollection.orderBy("date", "desc").onSnapshot(snapshot => {
+    // 입출고 내역 실시간 감지 (orderBy 제거)
+    transactionsCollection.onSnapshot(snapshot => {
         transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log(`입출고 데이터 실시간 업데이트: ${transactions.length}건`);
         updateAll(); // 데이터 변경 시마다 전체 UI 갱신
@@ -62,8 +62,8 @@ function setupRealtimeListeners() {
         alert("입출고 데이터를 실시간으로 동기화하는 데 실패했습니다.");
     });
 
-    // 수입원가 내역 실시간 감지
-    importCostSheetsCollection.orderBy("etd", "desc").onSnapshot(snapshot => {
+    // 수입원가 내역 실시간 감지 (orderBy 제거)
+    importCostSheetsCollection.onSnapshot(snapshot => {
         ic_costSheets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log(`수입원가 데이터 실시간 업데이트: ${ic_costSheets.length}건`);
         ic_renderList(); // 수입원가 목록 UI 갱신
@@ -101,8 +101,6 @@ function bindEventListeners() {
 }
 
 // ================== 2. Firebase 데이터 처리 (CRUD - 실시간 동기화 방식) ==================
-
-// [핵심 수정] 실시간 동기화에 맞춰 로컬 데이터 수동 조작 코드 제거
 async function processTransaction(isEdit) {
     const type = document.getElementById('transaction-type').value;
     const date = document.getElementById('transaction-date').value;
@@ -135,7 +133,6 @@ async function processTransaction(isEdit) {
             await transactionsCollection.add(record);
             alert('입출고 내역이 성공적으로 등록되었습니다.');
         }
-        // 성공 후 폼만 초기화 (UI 업데이트는 실시간 리스너가 자동으로 처리)
         cancelTransactionEdit();
     } catch (error) {
         console.error("데이터 저장/수정 오류:", error);
@@ -143,7 +140,6 @@ async function processTransaction(isEdit) {
     }
 }
 
-// [핵심 수정] 실시간 동기화에 맞춰 로컬 데이터 수동 조작 코드 제거
 async function processBulkTransactions(records) {
     const batch = db.batch();
     let successCount = 0;
@@ -158,14 +154,12 @@ async function processBulkTransactions(records) {
     try {
         await batch.commit();
         document.getElementById('bulk-upload-status').innerText = `총 ${records.length}건 중 ${successCount}건 처리 성공.`;
-        // UI 업데이트는 리스너가 자동 처리
     } catch (error) {
         console.error("대량 등록 오류:", error);
         document.getElementById('bulk-upload-status').innerText = `오류 발생: ${error.message}`;
     }
 }
 
-// [핵심 수정] 실시간 동기화에 맞춰 로컬 데이터 수동 조작 코드 제거
 async function deleteSelectedTransactions() {
     const selectedIds = Array.from(document.querySelectorAll('.transaction-checkbox:checked')).map(cb => cb.value);
     if (selectedIds.length === 0) return alert('삭제할 항목을 선택하세요.');
@@ -176,16 +170,13 @@ async function deleteSelectedTransactions() {
         selectedIds.forEach(id => batch.delete(transactionsCollection.doc(id)));
         await batch.commit();
         alert(`${selectedIds.length}개의 거래가 삭제되었습니다.`);
-        // UI 업데이트는 리스너가 자동 처리
     } catch (error) {
         console.error("데이터 삭제 오류:", error);
         alert("데이터를 삭제하는 중 오류가 발생했습니다.");
     }
 }
 
-// (ic_processCostSheet, ic_deleteSelectedSheets 함수 등은 변경사항이 거의 없으므로 그대로 유지)
 async function ic_processCostSheet(isEdit) {
-    // ... (이전과 동일한 코드)
     const sheetData = {
         shipper: document.getElementById('form-shipper').value.trim(),
         terms: document.getElementById('form-terms').value.trim(),
@@ -237,7 +228,7 @@ async function ic_processCostSheet(isEdit) {
             await importCostSheetsCollection.add(sheetData);
             alert('등록되었습니다.');
         }
-        ic_clearForm(); // UI 업데이트는 리스너가 자동 처리
+        ic_clearForm();
     } catch (error) {
         console.error("정산서 저장 오류:", error);
         alert("정산서를 저장하는 중 오류가 발생했습니다.");
@@ -254,7 +245,6 @@ async function ic_deleteSelectedSheets() {
         selectedIds.forEach(id => batch.delete(importCostSheetsCollection.doc(id)));
         await batch.commit();
         alert(`${selectedIds.length}개의 정산 내역이 삭제되었습니다.`);
-        // UI 업데이트는 리스너가 자동 처리
     } catch (error) {
         console.error("정산서 삭제 오류:", error);
         alert("정산서를 삭제하는 중 오류가 발생했습니다.");
@@ -312,7 +302,6 @@ async function restoreDataFromJson() {
 
                 document.getElementById('backup-status').innerText = '데이터가 성공적으로 복원되었습니다.';
                 alert('데이터 복원이 완료되었습니다!');
-                // UI 업데이트는 리스너가 자동 처리
             } else {
                 alert('선택된 파일이 유효한 백업 파일이 아닙니다.');
             }
@@ -328,7 +317,7 @@ async function restoreDataFromJson() {
     reader.readAsText(currentBackupFile);
 }
 
-// ================== 4. UI 및 비즈니스 로직 (이하 함수들은 대부분 변경 없음) ==================
+// ================== 4. UI 및 비즈니스 로직 ==================
 function updateDatalists() {
     const sets = { brand: new Set(), lot: new Set(), company: new Set() };
     transactions.forEach(t => {
@@ -373,7 +362,6 @@ function toggleOtherCostsField() {
 }
 
 function applyFiltersAndRender() {
-    // 재고 필터링
     const invFilters = {
         brand: document.getElementById('filter-inv-brand').value.toLowerCase(),
         category: document.getElementById('filter-inv-category').value.toLowerCase(),
@@ -388,7 +376,6 @@ function applyFiltersAndRender() {
     );
     updateInventoryTable(filteredInventory);
 
-    // 입출고 필터링
     const tranFilters = {
         type: document.getElementById('filter-tran-type').value,
         month: document.getElementById('filter-tran-month').value,
@@ -398,7 +385,8 @@ function applyFiltersAndRender() {
         lot: document.getElementById('filter-tran-lot').value.toLowerCase(),
         company: document.getElementById('filter-tran-company').value.toLowerCase()
     };
-    const filteredTransactions = transactions.filter(t =>
+    let filteredTransactions = [...transactions]; // 복사본 사용
+    filteredTransactions = filteredTransactions.filter(t =>
         (!tranFilters.type || t.type === tranFilters.type) &&
         (!tranFilters.month || t.date.startsWith(tranFilters.month)) &&
         (t.brand?.toLowerCase().includes(tranFilters.brand)) &&
@@ -484,6 +472,10 @@ function updateTransactionTable(transactionsToDisplay) {
     const tbody = document.getElementById('transaction-tbody');
     tbody.innerHTML = '';
     let totalWeight = 0, totalAmount = 0, totalOtherCosts = 0;
+    
+    // orderBy를 제거했으므로, 화면에 표시하기 직전에 수동으로 날짜 정렬
+    transactionsToDisplay.sort((a, b) => new Date(b.date) - new Date(a.date));
+
     transactionsToDisplay.forEach(t => {
         const weight = parseFloat(t.weight) || 0;
         const unitPrice = parseFloat(t.unitPrice) || 0;
@@ -557,7 +549,10 @@ function autoFillItemDetails() {
     const brand = document.getElementById('tran-brand').value.trim();
     const lot = document.getElementById('tran-lot').value.trim();
     if (!brand || !lot) return;
-    const recent = transactions.find(t => t.brand === brand && t.lot === lot);
+    // 최신 데이터를 기준으로 자동완성하기 위해 정렬 후 첫번째 아이템을 찾음
+    const recent = [...transactions]
+        .filter(t => t.brand === brand && t.lot === lot)
+        .sort((a,b) => new Date(b.date) - new Date(a.date))[0];
     if (recent) {
         document.getElementById('tran-category').value = recent.category || '';
         document.getElementById('tran-spec').value = recent.spec || '';
@@ -565,11 +560,6 @@ function autoFillItemDetails() {
     }
 }
 // ...(이하 나머지 모든 함수는 이전과 동일)...
-// CSV, 인보이스, 청구서, 매출 보고서, 수입원가 등 모든 함수는 이전 버전 그대로 유지됩니다.
-// 여기에 모든 함수를 다시 붙여넣습니다.
-
-// ... (이전 답변의 나머지 모든 함수를 여기에 붙여넣으세요)
-// (generateInvoice, printInvoice, generateSalesReport, ic_addItemRow, generateBill 등등... )
 
 // ================== 5. HTML onclick과 함수 연결 ==================
 window.showTab = showTab;

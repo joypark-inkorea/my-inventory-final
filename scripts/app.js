@@ -73,30 +73,46 @@ function loadAllDataFromFirebase() {
 
     // 1. 입출고 내역 실시간 감지
     transactionsCollection.onSnapshot(snapshot => {
+        
+        // --- 🔶 여기가 핵심 수정 부분입니다 🔶 ---
+        // 만약 현재 무언가를 수정하고 있는 중이라면,
+        if (editingTransactionId) {
+            // 방금 새로 받은 데이터 목록에 수정 중인 ID가 여전히 존재하는지 확인합니다.
+            const stillExists = snapshot.docs.some(doc => doc.id === editingTransactionId);
+            
+            // 만약 존재하지 않는다면(즉, 방금 삭제되었다면),
+            if (!stillExists) {
+                alert('현재 수정하던 항목이 다른 곳에서 삭제되어 수정 모드를 안전하게 취소합니다.');
+                // 수정 폼을 초기화하고 수정 상태를 해제합니다.
+                cancelTransactionEdit();
+            }
+        }
+        // --- 🔶 수정 끝 🔶 ---
+
         transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log(`입출고 데이터 실시간 업데이트됨. 총 ${transactions.length}건`);
-        // 데이터가 변경될 때마다 화면 전체를 다시 계산하고 그림
+        
         updateAll();
     }, error => {
         console.error("입출고 내역 실시간 동기화 오류:", error);
         alert("입출고 내역을 실시간으로 동기화하는 데 실패했습니다.");
     });
 
-    // 2. 수입원가 정산서 실시간 감지
+    // 2. 수입원가 정산서 실시간 감지 (이 부분은 변경 없음)
     importCostSheetsCollection.onSnapshot(snapshot => {
         ic_costSheets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log(`수입원가 데이터 실시간 업데이트됨. 총 ${ic_costSheets.length}건`);
-        // 데이터가 변경될 때마다 정산서 목록을 다시 그림
         ic_renderList();
     }, error => {
         console.error("수입원가 정산서 실시간 동기화 오류:", error);
         alert("수입원가 정산서 목록을 실시간으로 동기화하는 데 실패했습니다.");
     });
 
-    // 페이지 로딩 시 UI 초기화는 최초 한 번만 실행
-    // 데이터 로딩 및 화면 업데이트는 위의 onSnapshot 리스너가 담당합니다.
     initializeAppUI();
 }
+
+
+
 
 function initializeAppUI() {
     console.log("UI 초기화를 시작합니다...");
@@ -1471,5 +1487,6 @@ window.loadBackupFile = loadBackupFile;
 // [신규] 청구서 헬퍼 함수
 window.calculateRowAndTotal = calculateRowAndTotal;
 window.calculateBillTotals = calculateBillTotals;
+
 
 

@@ -61,9 +61,9 @@ th { background: #f8f9fa; font-weight: bold; }
 tfoot tr { background-color: #f8f9fa; font-weight: bold; color: var(--primary-color); }
 tfoot td { text-align: right; }
 
-.inventory-table th { background: var(--primary-color); color: white; }
-.transaction-table th { background: var(--success-color); color: white; }
-.sales-report-table th { background: var(--warning-color); color: white; }
+.inventory-table th { background: #f9f9f9; font-weight: 600; color: #444; }
+.transaction-table th { background: #f9f9f9; font-weight: 600; color: #444; }
+.sales-report-table th { background: #f9f9f9; font-weight: 600; color: #444; }
 .action-btn { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; margin-right: 5px; }
 .action-btn:hover { background: #2980b9; }
 
@@ -205,3 +205,4 @@ tfoot td { text-align: right; }
     text-align: right;
     margin-bottom: 10px;
 }
+

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>그루텍스 통합 관리 시스템 v5.2 (Firebase)</title>
+    <title>그루텍스 통합 관리 시스템 v5.3 (Firebase)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -352,7 +352,7 @@
         
         <div id="invoice" class="tab-content">
              <div class="section">
-                <h3>거래명세표 생성</h3>
+                <h3>거래명세표/청구서 생성</h3>
                 <div class="input-group">
                     <div class="input-field">
                         <label>공급받는자 (회사명) *</label>
@@ -400,6 +400,7 @@
                     <input type="date" class="date-placeholder" id="filter-report-end-date" placeholder="기간 설정 종료일">
                     <input type="text" id="filter-report-company" placeholder="업체 검색">
                     <input type="text" id="filter-report-brand" placeholder="브랜드 검색">
+                    <input type="text" id="filter-report-item-category" placeholder="품목 검색">
                     <input type="text" id="filter-report-product" placeholder="제품 검색">
                 </div>
 

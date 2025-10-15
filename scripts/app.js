@@ -20,18 +20,18 @@ const db = firebase.firestore();
 // Firestore 컬렉션 참조
 const transactionsCollection = db.collection('transactions');
 const importCostSheetsCollection = db.collection('importCostSheets');
-const salesCollection = db.collection('sales'); // 매출 컬렉션 추가
-const remittancesCollection = db.collection('remittances'); // 해외송금 컬렉션 추가
+const salesCollection = db.collection('sales');
+const remittancesCollection = db.collection('remittances');
 
 // 전역 변수
 let inventory = [];
 let transactions = [];
-let sales = []; // 매출 데이터 배열
-let remittances = []; // 해외송금 데이터 배열
+let sales = [];
+let remittances = [];
 let ic_costSheets = [];
 let editingTransactionId = null;
-let editingSaleId = null; // 매출 수정 ID
-let editingRemittanceId = null; // 해외송금 수정 ID
+let editingSaleId = null;
+let editingRemittanceId = null;
 let ic_editingId = null;
 let currentBackupFile = null;
 
@@ -128,14 +128,13 @@ function bindEventListeners() {
      'filter-tran-spec', 'filter-tran-lot', 'filter-tran-company']
     .forEach(id => document.getElementById(id)?.addEventListener('input', applyFiltersAndRender));
 
-    // [수정] 매출 보고서 필터에 품목 필터 추가
-    ['filter-report-start-date', 'filter-report-end-date', 'filter-report-company', 'filter-report-brand', 'filter-report-item-category', 'filter-report-product']
+    ['filter-report-start-date', 'filter-report-end-date', 'filter-report-company', 'filter-report-brand', 'filter-report-item-category', 'filter-report-product', 'filter-report-spec']
     .forEach(id => document.getElementById(id)?.addEventListener('input', generateSalesReport));
   
-    ['filter-sales-start-month', 'filter-sales-end-month', 'filter-sales-list-brand', 'filter-sales-list-product', 'filter-sales-list-spec', 'filter-sales-list-company']
+    ['filter-sales-start-month', 'filter-sales-end-month', 'filter-sales-list-company', 'filter-sales-list-brand', 'filter-sales-list-item-category', 'filter-sales-list-product', 'filter-sales-list-spec']
     .forEach(id => document.getElementById(id)?.addEventListener('input', applySalesFiltersAndRender));
 
-    ['filter-remit-start-month', 'filter-remit-end-month', 'filter-remit-brand', 'filter-remit-product', 'filter-remit-spec', 'filter-remit-company']
+    ['filter-remit-start-month', 'filter-remit-end-month', 'filter-remit-company', 'filter-remit-brand', 'filter-remit-item-category', 'filter-remit-product', 'filter-remit-spec']
     .forEach(id => document.getElementById(id)?.addEventListener('input', applyRemittanceFiltersAndRender));
 
     document.getElementById('tran-brand').addEventListener('blur', autoFillItemDetails);
@@ -579,9 +578,8 @@ function resetTransactionFilters() {
     applyFiltersAndRender();
 }
 
-// [수정] 매출 보고서 필터 리셋에 품목 필터 추가
 function resetSalesReportFilters() {
-  ['filter-report-start-date', 'filter-report-end-date', 'filter-report-company', 'filter-report-brand', 'filter-report-item-category', 'filter-report-product']
+  ['filter-report-start-date', 'filter-report-end-date', 'filter-report-company', 'filter-report-brand', 'filter-report-item-category', 'filter-report-product', 'filter-report-spec']
   .forEach(id => document.getElementById(id).value = '');
     generateSalesReport();
 }
@@ -827,20 +825,22 @@ function applySalesFiltersAndRender() {
     const filters = {
         startMonth: document.getElementById('filter-sales-start-month').value,
         endMonth: document.getElementById('filter-sales-end-month').value,
+        company: document.getElementById('filter-sales-list-company').value.toLowerCase(),
         brand: document.getElementById('filter-sales-list-brand').value.toLowerCase(),
+        itemCategory: document.getElementById('filter-sales-list-item-category').value.toLowerCase(),
         product: document.getElementById('filter-sales-list-product').value.toLowerCase(),
         spec: document.getElementById('filter-sales-list-spec').value.toLowerCase(),
-        company: document.getElementById('filter-sales-list-company').value.toLowerCase()
     };
     const filteredSales = sales.filter(s => {
         const month = s.date.substring(0, 7);
         const startCheck = !filters.startMonth || month >= filters.startMonth;
         const endCheck = !filters.endMonth || month <= filters.endMonth;
         return startCheck && endCheck &&
+               (s.company || '').toLowerCase().includes(filters.company) &&
                (s.brand || '').toLowerCase().includes(filters.brand) &&
+               (s.itemCategory || '').toLowerCase().includes(filters.itemCategory) &&
                (s.product || '').toLowerCase().includes(filters.product) &&
-               (s.spec || '').toLowerCase().includes(filters.spec) &&
-               (s.company || '').toLowerCase().includes(filters.company);
+               (s.spec || '').toLowerCase().includes(filters.spec);
     });
     updateSalesTable(filteredSales);
 }
@@ -902,7 +902,7 @@ function cancelSaleEdit() {
 }
 
 function resetSalesFilters() {
-    ['filter-sales-start-month', 'filter-sales-end-month', 'filter-sales-list-brand', 'filter-sales-list-product', 'filter-sales-list-spec', 'filter-sales-list-company']
+    ['filter-sales-start-month', 'filter-sales-end-month', 'filter-sales-list-company', 'filter-sales-list-brand', 'filter-sales-list-item-category', 'filter-sales-list-product', 'filter-sales-list-spec']
     .forEach(id => document.getElementById(id).value = '');
     applySalesFiltersAndRender();
 }
@@ -929,20 +929,22 @@ function applyRemittanceFiltersAndRender() {
     const filters = {
         startMonth: document.getElementById('filter-remit-start-month').value,
         endMonth: document.getElementById('filter-remit-end-month').value,
+        company: document.getElementById('filter-remit-company').value.toLowerCase(),
         brand: document.getElementById('filter-remit-brand').value.toLowerCase(),
+        itemCategory: document.getElementById('filter-remit-item-category').value.toLowerCase(),
         product: document.getElementById('filter-remit-product').value.toLowerCase(),
-        spec: document.getElementById('filter-remit-spec').value.toLowerCase(),
-        company: document.getElementById('filter-remit-company').value.toLowerCase()
+        spec: document.getElementById('filter-remit-spec').value.toLowerCase()
     };
     const filteredRemittances = remittances.filter(r => {
         const month = r.date.substring(0, 7);
         const startCheck = !filters.startMonth || month >= filters.startMonth;
         const endCheck = !filters.endMonth || month <= filters.endMonth;
         return startCheck && endCheck &&
+               (r.company || '').toLowerCase().includes(filters.company) &&
                (r.brand || '').toLowerCase().includes(filters.brand) &&
+               (r.itemCategory || '').toLowerCase().includes(filters.itemCategory) &&
                (r.product || '').toLowerCase().includes(filters.product) &&
-               (r.spec || '').toLowerCase().includes(filters.spec) &&
-               (r.company || '').toLowerCase().includes(filters.company);
+               (r.spec || '').toLowerCase().includes(filters.spec);
     });
     updateRemittanceTable(filteredRemittances);
 }
@@ -1001,7 +1003,7 @@ function cancelRemittanceEdit() {
 }
 
 function resetRemittanceFilters() {
-    ['filter-remit-start-month', 'filter-remit-end-month', 'filter-remit-brand', 'filter-remit-product', 'filter-remit-spec', 'filter-remit-company']
+    ['filter-remit-start-month', 'filter-remit-end-month', 'filter-remit-company', 'filter-remit-brand', 'filter-remit-item-category', 'filter-remit-product', 'filter-remit-spec']
     .forEach(id => document.getElementById(id).value = '');
     applyRemittanceFiltersAndRender();
 }
@@ -1016,7 +1018,7 @@ function exportRemittanceCSV() {
 }
 
 
-// ================== 4-3. [수정됨] 거래명세서/청구서 데이터 통합 ==================
+// ================== 4-3. 거래명세서/청구서 ==================
 function generateInvoice() {
     const recipientCompany = document.getElementById('recipient-company').value.trim();
     const startDate = document.getElementById('invoice-start-date').value;
@@ -1027,21 +1029,18 @@ function generateInvoice() {
         return alert('(*) 필수 항목(회사명, 날짜 범위)을 입력해주세요.');
     }
 
-    // 1. 입출고 데이터 필터링
     const filteredTransactions = transactions.filter(t => {
         return new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) &&
                (transactionType === 'all' || t.type === transactionType) &&
                t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
     });
 
-    // 2. 매출 데이터 필터링
     const filteredSales = sales.filter(s => {
         return new Date(s.date) >= new Date(startDate) && new Date(s.date) <= new Date(endDate) &&
-               (transactionType === 'all' || transactionType === '출고') && // 매출은 '출고' 또는 '전체'일 때만 포함
+               (transactionType === 'all' || transactionType === '출고') &&
                s.company.trim().toLowerCase() === recipientCompany.toLowerCase();
     });
 
-    // 3. 두 데이터를 공통 형식으로 변환하여 통합
     let combinedItems = [];
     filteredTransactions.forEach(t => combinedItems.push({
         date: t.date, brand: t.brand, product: t.product, spec: t.spec, lot: t.lot,
@@ -1052,7 +1051,6 @@ function generateInvoice() {
         unit: s.unit, quantity: s.quantity, unitPrice: s.sellingPrice, notes: s.notes, destination: ''
     }));
 
-    // 4. 통합된 데이터 정렬 및 렌더링
     combinedItems.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     if (combinedItems.length === 0) {
@@ -1181,10 +1179,10 @@ function generateSalesReport() {
     const endDate = document.getElementById('filter-report-end-date').value;
     const companyFilter = document.getElementById('filter-report-company').value.toLowerCase();
     const brandFilter = document.getElementById('filter-report-brand').value.toLowerCase();
-    const itemCategoryFilter = document.getElementById('filter-report-item-category').value.toLowerCase(); // [추가] 품목 필터 값
+    const itemCategoryFilter = document.getElementById('filter-report-item-category').value.toLowerCase();
     const productFilter = document.getElementById('filter-report-product').value.toLowerCase();
+    const specFilter = document.getElementById('filter-report-spec').value.toLowerCase();
 
-    // 1. '입출고' 데이터 중 '출고' 내역 필터링
     const outgoingTransactions = transactions.filter(t => {
         const transactionDate = new Date(t.date);
         const startCheck = !startDate || transactionDate >= new Date(startDate);
@@ -1192,11 +1190,11 @@ function generateSalesReport() {
         return t.type === '출고' && startCheck && endCheck &&
             (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
             (!brandFilter || (t.brand||'').toLowerCase().includes(brandFilter)) &&
-            (!itemCategoryFilter || '원자재'.includes(itemCategoryFilter)) && // [추가] 품목 필터 조건
-            (!productFilter || (t.product || '').toLowerCase().includes(productFilter));
+            (!itemCategoryFilter || '원자재'.includes(itemCategoryFilter)) &&
+            (!productFilter || (t.product || '').toLowerCase().includes(productFilter)) &&
+            (!specFilter || (t.spec || '').toLowerCase().includes(specFilter));
     });
 
-    // 2. '매출' 데이터 필터링
     const salesData = sales.filter(s => {
         const saleDate = new Date(s.date);
         const startCheck = !startDate || saleDate >= new Date(startDate);
@@ -1204,13 +1202,13 @@ function generateSalesReport() {
         return startCheck && endCheck &&
             (!companyFilter || s.company.toLowerCase().includes(companyFilter)) &&
             (!brandFilter || (s.brand||'').toLowerCase().includes(brandFilter)) &&
-            (!itemCategoryFilter || (s.itemCategory || '').toLowerCase().includes(itemCategoryFilter)) && // [추가] 품목 필터 조건
-            (!productFilter || (s.product || '').toLowerCase().includes(productFilter));
+            (!itemCategoryFilter || (s.itemCategory || '').toLowerCase().includes(itemCategoryFilter)) &&
+            (!productFilter || (s.product || '').toLowerCase().includes(productFilter)) &&
+            (!specFilter || (s.spec || '').toLowerCase().includes(specFilter));
     });
 
     let reportData = [];
 
-    // '출고' 데이터 변환
     outgoingTransactions.forEach(t => {
         const matchingInbound = transactions.filter(it => it.type === '입고' && it.brand === t.brand && it.lot === t.lot).sort((a,b) => new Date(b.date) - new Date(a.date));
         const costPrice = matchingInbound.length > 0 ? matchingInbound[0].unitPrice : 0;
@@ -1221,13 +1219,12 @@ function generateSalesReport() {
         
         reportData.push({
             date: t.date, company: t.company, brand: t.brand,
-            itemCategory: '원자재', // [수정] "제품 판매" -> "원자재"
+            itemCategory: '원자재',
             product: t.product, spec: t.spec, lot: t.lot,
             quantity: t.weight, totalCosts: totalCosts, salesAmount: salesAmount, margin: margin
         });
     });
 
-    // '매출' 데이터 변환
     salesData.forEach(s => {
         reportData.push({
             date: s.date, company: s.company, brand: s.brand,

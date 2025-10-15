@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>그루텍스 통합 관리 시스템 v5.1 (Firebase)</title>
+    <title>그루텍스 통합 관리 시스템 v5.2 (Firebase)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -31,7 +31,7 @@
                 <h3 id="transaction-form-title">입출고 등록</h3>
                 <div class="input-group"> 
                     <div class="input-field"><label>구분*</label><select id="transaction-type" onchange="toggleOtherCostsField()"><option value="입고">입고</option><option value="출고">출고</option></select></div>
-                    <div class="input-field"><label>날짜*</label><input type="date" id="transaction-date" required></div>
+                    <div class="input-field"><label>날짜*</label><input type="date" id="transaction-date" value="2025-10-15" required></div>
                     <div class="input-field"><label>브랜드*</label><input type="text" id="tran-brand" list="brand-list" placeholder="기존 선택 또는 신규 입력" required> <datalist id="brand-list"></datalist></div>
                     <div class="input-field"><label>LOT*</label><input type="text" id="tran-lot" list="lot-list" placeholder="기존 선택 또는 신규 입력" required><datalist id="lot-list"></datalist></div>
                     <div class="input-field"><label>제품</label><input type="text" id="tran-product" placeholder="신규 입고 시 입력"></div>
@@ -130,40 +130,42 @@
         <div id="new-sales" class="tab-content">
             <div class="section">
                 <h3 id="sales-form-title">매출 등록</h3>
-                <div class="input-group"> 
-                    <div class="input-field"><label>날짜*</label><input type="date" id="sales-date" required></div>
-                    <div class="input-field"><label>업체*</label><input type="text" id="sales-company" list="company-list-tran" placeholder="거래 업체명" required></div>
-                    <div class="input-field"><label>브랜드*</label><input type="text" id="sales-brand" list="brand-list" placeholder="브랜드명" required></div>
-                    <div class="input-field"><label>품목*</label>
-                        <select id="sales-item-category">
-                            <option value="로열티">로열티</option>
-                            <option value="원단">원단</option>
-                            <option value="행택">행택</option>
-                            <option value="운임비">운임비</option>
-                            <option value="기타">기타</option>
-                        </select>
+                <form id="sales-form">
+                    <div class="input-group"> 
+                        <div class="input-field"><label>날짜*</label><input type="date" id="sales-date" required></div>
+                        <div class="input-field"><label>업체*</label><input type="text" id="sales-company" list="company-list-tran" placeholder="거래 업체명" required></div>
+                        <div class="input-field"><label>브랜드*</label><input type="text" id="sales-brand" list="brand-list" placeholder="브랜드명" required></div>
+                        <div class="input-field"><label>품목*</label>
+                            <select id="sales-item-category">
+                                <option value="로열티">로열티</option>
+                                <option value="원단">원단</option>
+                                <option value="행택">행택</option>
+                                <option value="운임비">운임비</option>
+                                <option value="기타">기타</option>
+                            </select>
+                        </div>
+                        <div class="input-field"><label>제품</label><input type="text" id="sales-product" placeholder="제품명"></div>
+                        <div class="input-field"><label>스펙</label><input type="text" id="sales-spec" placeholder="스펙"></div>
+                        <div class="input-field"><label>수량*</label><input type="number" id="sales-quantity" required oninput="calculateSales()"></div>
+                        <div class="input-field"><label>단위*</label>
+                            <select id="sales-unit">
+                                <option value="kg">kg</option>
+                                <option value="yd">yd</option>
+                                <option value="mt">mt</option>
+                                <option value="pc">pc</option>
+                                <option value="unit">unit</option>
+                            </select>
+                        </div>
+                        <div class="input-field"><label>판가(원)*</label><input type="number" id="sales-selling-price" required oninput="calculateSales()"></div>
+                        <div class="input-field"><label>원가(원)</label><input type="number" id="sales-cost-price" oninput="calculateSales()"></div>
+                        <div class="input-field"><label>총매출(원)</label><input type="number" id="sales-total-sales" readonly></div>
+                        <div class="input-field"><label>총마진(원)</label><input type="number" id="sales-total-margin" readonly></div>
+                        <div class="input-field"><label>비고</label><input type="text" id="sales-notes"></div>
                     </div>
-                    <div class="input-field"><label>제품</label><input type="text" id="sales-product" placeholder="제품명"></div>
-                    <div class="input-field"><label>스펙</label><input type="text" id="sales-spec" placeholder="스펙"></div>
-                    <div class="input-field"><label>수량*</label><input type="number" id="sales-quantity" required oninput="calculateSales()"></div>
-                    <div class="input-field"><label>단위*</label>
-                        <select id="sales-unit">
-                            <option value="kg">kg</option>
-                            <option value="yd">yd</option>
-                            <option value="mt">mt</option>
-                            <option value="pc">pc</option>
-                            <option value="unit">unit</option>
-                        </select>
-                    </div>
-                    <div class="input-field"><label>판가(원)*</label><input type="number" id="sales-selling-price" required oninput="calculateSales()"></div>
-                    <div class="input-field"><label>원가(원)</label><input type="number" id="sales-cost-price" oninput="calculateSales()"></div>
-                    <div class="input-field"><label>총매출(원)</label><input type="number" id="sales-total-sales" readonly></div>
-                    <div class="input-field"><label>총마진(원)</label><input type="number" id="sales-total-margin" readonly></div>
-                    <div class="input-field"><label>비고</label><input type="text" id="sales-notes"></div>
-                </div>
+                </form>
                 <div class="btn-group" id="sales-form-buttons">
                     <button class="btn btn-primary" onclick="addSale()">매출 등록</button>
-                    </div>
+                </div>
             </div>
             <div class="section filter-section">
                 <h3>매출 내역 필터</h3>
@@ -201,38 +203,40 @@
         <div id="remittance" class="tab-content">
             <div class="section">
                 <h3 id="remittance-form-title">해외 송금 등록</h3>
-                <div class="input-group">
-                    <div class="input-field"><label>날짜*</label><input type="date" id="remit-date" required></div>
-                    <div class="input-field"><label>업체*</label><input type="text" id="remit-company" list="company-list-tran" placeholder="거래 업체명" required></div>
-                    <div class="input-field"><label>브랜드*</label><input type="text" id="remit-brand" list="brand-list" placeholder="브랜드명" required></div>
-                    <div class="input-field"><label>품목*</label>
-                        <select id="remit-item-category">
-                            <option value="로열티">로열티</option>
-                            <option value="원단">원단</option>
-                            <option value="행택">행택</option>
-                            <option value="운임비">운임비</option>
-                            <option value="기타">기타</option>
-                        </select>
+                <form id="remittance-form">
+                    <div class="input-group">
+                        <div class="input-field"><label>날짜*</label><input type="date" id="remit-date" required></div>
+                        <div class="input-field"><label>업체*</label><input type="text" id="remit-company" list="company-list-tran" placeholder="거래 업체명" required></div>
+                        <div class="input-field"><label>브랜드*</label><input type="text" id="remit-brand" list="brand-list" placeholder="브랜드명" required></div>
+                        <div class="input-field"><label>품목*</label>
+                            <select id="remit-item-category">
+                                <option value="로열티">로열티</option>
+                                <option value="원단">원단</option>
+                                <option value="행택">행택</option>
+                                <option value="운임비">운임비</option>
+                                <option value="기타">기타</option>
+                            </select>
+                        </div>
+                        <div class="input-field"><label>제품</label><input type="text" id="remit-product" placeholder="제품명"></div>
+                        <div class="input-field"><label>스펙</label><input type="text" id="remit-spec" placeholder="스펙"></div>
+                        <div class="input-field"><label>수량*</label><input type="number" id="remit-quantity" required oninput="calculateRemittance()"></div>
+                        <div class="input-field"><label>단위*</label>
+                            <select id="remit-unit">
+                                <option value="kg">kg</option>
+                                <option value="yd">yd</option>
+                                <option value="mt">mt</option>
+                                <option value="pc">pc</option>
+                                <option value="unit">unit</option>
+                            </select>
+                        </div>
+                        <div class="input-field"><label>단가(원)*</label><input type="number" id="remit-unit-price" required oninput="calculateRemittance()"></div>
+                        <div class="input-field"><label>총합계(원)</label><input type="number" id="remit-total-amount" readonly></div>
+                        <div class="input-field"><label>비고</label><input type="text" id="remit-notes"></div>
                     </div>
-                    <div class="input-field"><label>제품</label><input type="text" id="remit-product" placeholder="제품명"></div>
-                    <div class="input-field"><label>스펙</label><input type="text" id="remit-spec" placeholder="스펙"></div>
-                    <div class="input-field"><label>수량*</label><input type="number" id="remit-quantity" required oninput="calculateRemittance()"></div>
-                    <div class="input-field"><label>단위*</label>
-                        <select id="remit-unit">
-                            <option value="kg">kg</option>
-                            <option value="yd">yd</option>
-                            <option value="mt">mt</option>
-                            <option value="pc">pc</option>
-                            <option value="unit">unit</option>
-                        </select>
-                    </div>
-                    <div class="input-field"><label>단가(원)*</label><input type="number" id="remit-unit-price" required oninput="calculateRemittance()"></div>
-                    <div class="input-field"><label>총합계(원)</label><input type="number" id="remit-total-amount" readonly></div>
-                    <div class="input-field"><label>비고</label><input type="text" id="remit-notes"></div>
-                </div>
+                </form>
                 <div class="btn-group" id="remittance-form-buttons">
                     <button class="btn btn-primary" onclick="addRemittance()">송금 등록</button>
-                    </div>
+                </div>
             </div>
             <div class="section filter-section">
                 <h3>해외 송금 내역 필터</h3>

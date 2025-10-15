@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>그루텍스 통합 관리 시스템 v5.3 (Firebase)</title>
+    <title>그루텍스 통합 관리 시스템 v5.4 (Firebase)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -172,10 +172,11 @@
                 <div class="filter-group">
                     <input type="month" id="filter-sales-start-month" placeholder="년-월(시작)">
                     <input type="month" id="filter-sales-end-month" placeholder="년-월(끝)">
+                    <input type="text" id="filter-sales-list-company" placeholder="업체 검색">
                     <input type="text" id="filter-sales-list-brand" placeholder="브랜드 검색">
+                    <input type="text" id="filter-sales-list-item-category" placeholder="품목 검색">
                     <input type="text" id="filter-sales-list-product" placeholder="제품 검색">
                     <input type="text" id="filter-sales-list-spec" placeholder="스펙 검색">
-                    <input type="text" id="filter-sales-list-company" placeholder="업체 검색">
                 </div>
                 <button class="btn btn-secondary" onclick="resetSalesFilters()">필터 초기화</button>
             </div>
@@ -243,10 +244,11 @@
                 <div class="filter-group">
                     <input type="month" id="filter-remit-start-month" placeholder="년-월(시작)">
                     <input type="month" id="filter-remit-end-month" placeholder="년-월(끝)">
+                    <input type="text" id="filter-remit-company" placeholder="업체 검색">
                     <input type="text" id="filter-remit-brand" placeholder="브랜드 검색">
+                    <input type="text" id="filter-remit-item-category" placeholder="품목 검색">
                     <input type="text" id="filter-remit-product" placeholder="제품 검색">
                     <input type="text" id="filter-remit-spec" placeholder="스펙 검색">
-                    <input type="text" id="filter-remit-company" placeholder="업체 검색">
                 </div>
                 <button class="btn btn-secondary" onclick="resetRemittanceFilters()">필터 초기화</button>
             </div>
@@ -396,12 +398,13 @@
             <div class="section">
                 <h3>매출 보고서 필터</h3>
                 <div class="filter-group">
-                    <input type="date" class="date-placeholder" id="filter-report-start-date" placeholder="기간 설정 시작일">
-                    <input type="date" class="date-placeholder" id="filter-report-end-date" placeholder="기간 설정 종료일">
+                    <input type="date" class="date-placeholder" id="filter-report-start-date" placeholder="시작일">
+                    <input type="date" class="date-placeholder" id="filter-report-end-date" placeholder="종료일">
                     <input type="text" id="filter-report-company" placeholder="업체 검색">
                     <input type="text" id="filter-report-brand" placeholder="브랜드 검색">
                     <input type="text" id="filter-report-item-category" placeholder="품목 검색">
                     <input type="text" id="filter-report-product" placeholder="제품 검색">
+                    <input type="text" id="filter-report-spec" placeholder="스펙 검색">
                 </div>
 
                 

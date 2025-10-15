@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>그루텍스 통합 관리 시스템 v5.0 (Firebase)</title>
+    <title>그루텍스 통합 관리 시스템 v5.1 (Firebase)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -18,6 +18,8 @@
         <div class="tab-container">
             <div class="tab active" onclick="showTab('transaction')">입출고 현황</div>
             <div class="tab" onclick="showTab('inventory')">재고 관리</div>
+            <div class="tab" onclick="showTab('new-sales')">매출</div>
+            <div class="tab" onclick="showTab('remittance')">해외송금</div>
             <div class="tab" onclick="showTab('import-cost')">수입원가 정산</div>
             <div class="tab" onclick="showTab('invoice')">거래명세표/청구서</div>
             <div class="tab" onclick="showTab('sales-report')">매출 보고서</div>
@@ -32,7 +34,7 @@
                     <div class="input-field"><label>날짜*</label><input type="date" id="transaction-date" required></div>
                     <div class="input-field"><label>브랜드*</label><input type="text" id="tran-brand" list="brand-list" placeholder="기존 선택 또는 신규 입력" required> <datalist id="brand-list"></datalist></div>
                     <div class="input-field"><label>LOT*</label><input type="text" id="tran-lot" list="lot-list" placeholder="기존 선택 또는 신규 입력" required><datalist id="lot-list"></datalist></div>
-                    <div class="input-field"><label>품목 구분</label><input type="text" id="tran-category" placeholder="신규 입고 시 입력"></div>
+                    <div class="input-field"><label>제품</label><input type="text" id="tran-product" placeholder="신규 입고 시 입력"></div>
                     <div class="input-field"><label>스펙</label><input type="text" id="tran-spec" placeholder="신규 입고 시 입력"></div>
                     <div class="input-field"><label>중량(kg)*</label><input type="number" id="transaction-weight" required></div>
                     <div class="input-field"><label>단가(원/kg)</label><input type="number" id="transaction-unit-price" placeholder="선택 사항"></div>
@@ -53,7 +55,7 @@
                     <select id="filter-tran-type"><option value="">거래구분 (전체)</option><option value="입고">입고</option><option value="출고">출고</option></select>
                     <input type="month" id="filter-tran-month">
                     <input type="text" id="filter-tran-brand" placeholder="브랜드 검색">
-                    <input type="text" id="filter-tran-category" placeholder="품목 구분 검색">
+                    <input type="text" id="filter-tran-product" placeholder="제품 검색">
                     <input type="text" id="filter-tran-spec" placeholder="스펙 검색">
                     <input type="text" id="filter-tran-lot" placeholder="LOT 검색">
                     <input type="text" id="filter-tran-company" placeholder="업체 검색">
@@ -73,7 +75,7 @@
                     <thead>
                         <tr>
                              <th><input type="checkbox" id="select-all-transactions" onchange="toggleAllCheckboxes('transaction-checkbox', this.checked)"></th>
-                            <th>구분</th><th>날짜</th><th>브랜드</th><th>품목구분</th><th>스펙</th><th>LOT</th><th>중량(kg)</th><th>단가(원/kg)</th><th>금액(원)</th><th>기타 비용(원)</th><th>업체</th><th>비고</th><th>도착지</th><th>특이사항</th>
+                            <th>구분</th><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>중량(kg)</th><th>단가(원/kg)</th><th>금액(원)</th><th>기타 비용(원)</th><th>업체</th><th>비고</th><th>도착지</th><th>특이사항</th>
                         </tr>
                     </thead>
                     <tbody id="transaction-tbody"></tbody>
@@ -96,7 +98,7 @@
                 <h3>재고 필터</h3>
                 <div class="filter-group">
                     <input type="text" id="filter-inv-brand" placeholder="브랜드 검색">
-                    <input type="text" id="filter-inv-category" placeholder="구분 검색">
+                    <input type="text" id="filter-inv-product" placeholder="제품 검색">
                     <input type="text" id="filter-inv-spec" placeholder="스펙 검색">
                     <input type="text" id="filter-inv-lot" placeholder="LOT 검색">
                 </div>
@@ -110,7 +112,7 @@
                 <table class="inventory-table">
                     <thead>
                         <tr>
-                            <th>브랜드</th><th>품목구분</th><th>스펙</th><th>LOT</th><th>현재 수량(kg)</th><th>최초입고일</th><th>비고</th>
+                            <th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>현재 수량(kg)</th><th>최초입고일</th><th>비고</th>
                         </tr>
                     </thead>
                     <tbody id="inventory-tbody"></tbody>
@@ -124,6 +126,147 @@
                 </table>
             </div>
         </div>
+        
+        <div id="new-sales" class="tab-content">
+            <div class="section">
+                <h3 id="sales-form-title">매출 등록</h3>
+                <div class="input-group"> 
+                    <div class="input-field"><label>날짜*</label><input type="date" id="sales-date" required></div>
+                    <div class="input-field"><label>업체*</label><input type="text" id="sales-company" list="company-list-tran" placeholder="거래 업체명" required></div>
+                    <div class="input-field"><label>브랜드*</label><input type="text" id="sales-brand" list="brand-list" placeholder="브랜드명" required></div>
+                    <div class="input-field"><label>품목*</label>
+                        <select id="sales-item-category">
+                            <option value="로열티">로열티</option>
+                            <option value="원단">원단</option>
+                            <option value="행택">행택</option>
+                            <option value="운임비">운임비</option>
+                            <option value="기타">기타</option>
+                        </select>
+                    </div>
+                    <div class="input-field"><label>제품</label><input type="text" id="sales-product" placeholder="제품명"></div>
+                    <div class="input-field"><label>스펙</label><input type="text" id="sales-spec" placeholder="스펙"></div>
+                    <div class="input-field"><label>수량*</label><input type="number" id="sales-quantity" required oninput="calculateSales()"></div>
+                    <div class="input-field"><label>단위*</label>
+                        <select id="sales-unit">
+                            <option value="kg">kg</option>
+                            <option value="yd">yd</option>
+                            <option value="mt">mt</option>
+                            <option value="pc">pc</option>
+                            <option value="unit">unit</option>
+                        </select>
+                    </div>
+                    <div class="input-field"><label>판가(원)*</label><input type="number" id="sales-selling-price" required oninput="calculateSales()"></div>
+                    <div class="input-field"><label>원가(원)</label><input type="number" id="sales-cost-price" oninput="calculateSales()"></div>
+                    <div class="input-field"><label>총매출(원)</label><input type="number" id="sales-total-sales" readonly></div>
+                    <div class="input-field"><label>총마진(원)</label><input type="number" id="sales-total-margin" readonly></div>
+                    <div class="input-field"><label>비고</label><input type="text" id="sales-notes"></div>
+                </div>
+                <div class="btn-group" id="sales-form-buttons">
+                    <button class="btn btn-primary" onclick="addSale()">매출 등록</button>
+                    </div>
+            </div>
+            <div class="section filter-section">
+                <h3>매출 내역 필터</h3>
+                <div class="filter-group">
+                    <input type="month" id="filter-sales-start-month" placeholder="년-월(시작)">
+                    <input type="month" id="filter-sales-end-month" placeholder="년-월(끝)">
+                    <input type="text" id="filter-sales-list-brand" placeholder="브랜드 검색">
+                    <input type="text" id="filter-sales-list-product" placeholder="제품 검색">
+                    <input type="text" id="filter-sales-list-spec" placeholder="스펙 검색">
+                    <input type="text" id="filter-sales-list-company" placeholder="업체 검색">
+                </div>
+                <button class="btn btn-secondary" onclick="resetSalesFilters()">필터 초기화</button>
+            </div>
+            <div class="section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>매출 내역</h3>
+                    <div class="btn-group">
+                        <button class="btn btn-warning" onclick="editSelectedSale()">✏️ 선택 수정</button>
+                        <button class="btn btn-danger" onclick="deleteSelectedSales()">🗑️ 선택 삭제</button>
+                        <button class="btn btn-success" onclick="exportSalesCSV()">📊 CSV 내보내기</button>
+                    </div>
+                </div>
+                <table class="sales-list-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="select-all-sales" onchange="toggleAllCheckboxes('sales-checkbox', this.checked)"></th>
+                            <th>날짜</th><th>업체</th><th>브랜드</th><th>품목</th><th>제품</th><th>스펙</th><th>수량</th><th>단위</th><th>판가(원)</th><th>원가(원)</th><th>총매출(원)</th><th>총마진(원)</th><th>비고</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sales-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="remittance" class="tab-content">
+            <div class="section">
+                <h3 id="remittance-form-title">해외 송금 등록</h3>
+                <div class="input-group">
+                    <div class="input-field"><label>날짜*</label><input type="date" id="remit-date" required></div>
+                    <div class="input-field"><label>업체*</label><input type="text" id="remit-company" list="company-list-tran" placeholder="거래 업체명" required></div>
+                    <div class="input-field"><label>브랜드*</label><input type="text" id="remit-brand" list="brand-list" placeholder="브랜드명" required></div>
+                    <div class="input-field"><label>품목*</label>
+                        <select id="remit-item-category">
+                            <option value="로열티">로열티</option>
+                            <option value="원단">원단</option>
+                            <option value="행택">행택</option>
+                            <option value="운임비">운임비</option>
+                            <option value="기타">기타</option>
+                        </select>
+                    </div>
+                    <div class="input-field"><label>제품</label><input type="text" id="remit-product" placeholder="제품명"></div>
+                    <div class="input-field"><label>스펙</label><input type="text" id="remit-spec" placeholder="스펙"></div>
+                    <div class="input-field"><label>수량*</label><input type="number" id="remit-quantity" required oninput="calculateRemittance()"></div>
+                    <div class="input-field"><label>단위*</label>
+                        <select id="remit-unit">
+                            <option value="kg">kg</option>
+                            <option value="yd">yd</option>
+                            <option value="mt">mt</option>
+                            <option value="pc">pc</option>
+                            <option value="unit">unit</option>
+                        </select>
+                    </div>
+                    <div class="input-field"><label>단가(원)*</label><input type="number" id="remit-unit-price" required oninput="calculateRemittance()"></div>
+                    <div class="input-field"><label>총합계(원)</label><input type="number" id="remit-total-amount" readonly></div>
+                    <div class="input-field"><label>비고</label><input type="text" id="remit-notes"></div>
+                </div>
+                <div class="btn-group" id="remittance-form-buttons">
+                    <button class="btn btn-primary" onclick="addRemittance()">송금 등록</button>
+                    </div>
+            </div>
+            <div class="section filter-section">
+                <h3>해외 송금 내역 필터</h3>
+                <div class="filter-group">
+                    <input type="month" id="filter-remit-start-month" placeholder="년-월(시작)">
+                    <input type="month" id="filter-remit-end-month" placeholder="년-월(끝)">
+                    <input type="text" id="filter-remit-brand" placeholder="브랜드 검색">
+                    <input type="text" id="filter-remit-product" placeholder="제품 검색">
+                    <input type="text" id="filter-remit-spec" placeholder="스펙 검색">
+                    <input type="text" id="filter-remit-company" placeholder="업체 검색">
+                </div>
+                <button class="btn btn-secondary" onclick="resetRemittanceFilters()">필터 초기화</button>
+            </div>
+            <div class="section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>해외 송금 내역</h3>
+                    <div class="btn-group">
+                        <button class="btn btn-warning" onclick="editSelectedRemittance()">✏️ 선택 수정</button>
+                        <button class="btn btn-danger" onclick="deleteSelectedRemittances()">🗑️ 선택 삭제</button>
+                        <button class="btn btn-success" onclick="exportRemittanceCSV()">📊 CSV 내보내기</button>
+                    </div>
+                </div>
+                <table class="remittance-list-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="select-all-remittances" onchange="toggleAllCheckboxes('remittance-checkbox', this.checked)"></th>
+                            <th>날짜</th><th>업체</th><th>브랜드</th><th>품목</th><th>제품</th><th>스펙</th><th>수량</th><th>단위</th><th>단가(원)</th><th>총합계(원)</th><th>비고</th>
+                        </tr>
+                    </thead>
+                    <tbody id="remittance-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
 
         <div id="import-cost" class="tab-content">
             <div class="section printable-section">
@@ -249,11 +392,11 @@
             <div class="section">
                 <h3>매출 보고서 필터</h3>
                 <div class="filter-group">
-                    <input type="date" class="date-placeholder" id="filter-sales-start-date" placeholder="기간 설정 시작일">
-                    <input type="date" class="date-placeholder" id="filter-sales-end-date" placeholder="기간 설정 종료일">
-                    <input type="text" id="filter-sales-company" placeholder="업체 검색">
-                    <input type="text" id="filter-sales-brand" placeholder="브랜드 검색">
-                    <input type="text" id="filter-sales-category" placeholder="품목 검색">
+                    <input type="date" class="date-placeholder" id="filter-report-start-date" placeholder="기간 설정 시작일">
+                    <input type="date" class="date-placeholder" id="filter-report-end-date" placeholder="기간 설정 종료일">
+                    <input type="text" id="filter-report-company" placeholder="업체 검색">
+                    <input type="text" id="filter-report-brand" placeholder="브랜드 검색">
+                    <input type="text" id="filter-report-product" placeholder="제품 검색">
                 </div>
 
                 
@@ -262,7 +405,7 @@
             </div>
             <div class="section" id="sales-report-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3>매출 보고서 내역 (출고 기준)</h3>
+                    <h3>매출 보고서 내역 (출고 및 매출 통합)</h3>
                     <div class="btn-group">
                          <button class="btn btn-success" onclick="exportSalesReportCSV()">📊 CSV 내보내기</button>
                     </div>
@@ -273,12 +416,11 @@
                             <th>월</th>
                             <th>업체</th>
                             <th>브랜드</th>
-                            <th>품목 구분</th>
+                            <th>품목</th>
+                            <th>제품</th>
                             <th>스펙</th>
                             <th>LOT</th>
-                            <th>중량(kg)</th>
-                            <th>매입 비용(원)</th>
-                            <th>기타 비용(원)</th>
+                            <th>수량</th>
                             <th>총 비용(원)</th>
                             <th>매출 금액(원)</th>
                             <th>최종 마진(원)</th>
@@ -288,10 +430,7 @@
                     <tbody id="sales-report-tbody"></tbody>
                      <tfoot>
                         <tr>
-                            <td colspan="6" style="text-align:center;">총 합계</td>
-                            <td id="total-sales-weight" style="text-align:left;"></td>
-                            <td id="total-sales-cost-of-goods" style="text-align:left;"></td>
-                            <td id="total-sales-other-costs" style="text-align:left;"></td>
+                            <td colspan="8" style="text-align:center;">총 합계</td>
                             <td id="total-sales-total-costs" style="text-align:left;"></td>
                             <td id="total-sales-amount" style="text-align:left;"></td>
                             <td id="total-sales-margin" style="text-align:left;"></td>
@@ -375,10 +514,3 @@
     <script src="scripts/app.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-

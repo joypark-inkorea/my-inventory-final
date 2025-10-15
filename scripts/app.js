@@ -76,14 +76,9 @@ function loadAllDataFromFirebase() {
                 cancelTransactionEdit();
             }
         }
-        // [수정] 기존 'category' 필드와 호환되도록 데이터 로드 로직 변경
         transactions = snapshot.docs.map(doc => {
             const data = doc.data();
-            return {
-                ...data,
-                id: doc.id,
-                product: data.product || data.category || '' // 'product'가 없으면 'category'를 사용
-            };
+            return { ...data, id: doc.id, product: data.product || data.category || '' };
         });
         console.log(`입출고 데이터 실시간 업데이트됨. 총 ${transactions.length}건`);
         updateAll();
@@ -133,7 +128,8 @@ function bindEventListeners() {
      'filter-tran-spec', 'filter-tran-lot', 'filter-tran-company']
     .forEach(id => document.getElementById(id)?.addEventListener('input', applyFiltersAndRender));
 
-    ['filter-report-start-date', 'filter-report-end-date', 'filter-report-company', 'filter-report-brand', 'filter-report-product']
+    // [수정] 매출 보고서 필터에 품목 필터 추가
+    ['filter-report-start-date', 'filter-report-end-date', 'filter-report-company', 'filter-report-brand', 'filter-report-item-category', 'filter-report-product']
     .forEach(id => document.getElementById(id)?.addEventListener('input', generateSalesReport));
   
     ['filter-sales-start-month', 'filter-sales-end-month', 'filter-sales-list-brand', 'filter-sales-list-product', 'filter-sales-list-spec', 'filter-sales-list-company']
@@ -583,8 +579,9 @@ function resetTransactionFilters() {
     applyFiltersAndRender();
 }
 
+// [수정] 매출 보고서 필터 리셋에 품목 필터 추가
 function resetSalesReportFilters() {
-  ['filter-report-start-date', 'filter-report-end-date', 'filter-report-company', 'filter-report-brand', 'filter-report-product']
+  ['filter-report-start-date', 'filter-report-end-date', 'filter-report-company', 'filter-report-brand', 'filter-report-item-category', 'filter-report-product']
   .forEach(id => document.getElementById(id).value = '');
     generateSalesReport();
 }
@@ -1019,43 +1016,81 @@ function exportRemittanceCSV() {
 }
 
 
-// ================== 4-3. 거래명세서/청구서 ==================
+// ================== 4-3. [수정됨] 거래명세서/청구서 데이터 통합 ==================
 function generateInvoice() {
     const recipientCompany = document.getElementById('recipient-company').value.trim();
     const startDate = document.getElementById('invoice-start-date').value;
     const endDate = document.getElementById('invoice-end-date').value;
     const transactionType = document.getElementById('invoice-transaction-type').value;
-    if (!recipientCompany || !startDate || !endDate) { return alert('(*) 필수 항목(회사명, 날짜 범위)을 입력해주세요.'); }
-    const filtered = transactions.filter(t => {
+
+    if (!recipientCompany || !startDate || !endDate) {
+        return alert('(*) 필수 항목(회사명, 날짜 범위)을 입력해주세요.');
+    }
+
+    // 1. 입출고 데이터 필터링
+    const filteredTransactions = transactions.filter(t => {
         return new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) &&
                (transactionType === 'all' || t.type === transactionType) &&
                t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
-    }).sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    if (filtered.length === 0) {
+    });
+
+    // 2. 매출 데이터 필터링
+    const filteredSales = sales.filter(s => {
+        return new Date(s.date) >= new Date(startDate) && new Date(s.date) <= new Date(endDate) &&
+               (transactionType === 'all' || transactionType === '출고') && // 매출은 '출고' 또는 '전체'일 때만 포함
+               s.company.trim().toLowerCase() === recipientCompany.toLowerCase();
+    });
+
+    // 3. 두 데이터를 공통 형식으로 변환하여 통합
+    let combinedItems = [];
+    filteredTransactions.forEach(t => combinedItems.push({
+        date: t.date, brand: t.brand, product: t.product, spec: t.spec, lot: t.lot,
+        unit: 'kg', quantity: t.weight, unitPrice: t.unitPrice, notes: t.notes, destination: t.destination
+    }));
+    filteredSales.forEach(s => combinedItems.push({
+        date: s.date, brand: s.brand, product: s.product, spec: s.spec, lot: '',
+        unit: s.unit, quantity: s.quantity, unitPrice: s.sellingPrice, notes: s.notes, destination: ''
+    }));
+
+    // 4. 통합된 데이터 정렬 및 렌더링
+    combinedItems.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (combinedItems.length === 0) {
         alert('해당 조건에 맞는 거래가 없습니다.');
         return document.getElementById('invoice-wrapper').style.display = 'none';
     }
+
     const today = new Date().toISOString().split('T')[0];
-    const itemsHtml = filtered.map(t => `<tr><td>${t.date}</td> <td>${t.brand || ''}</td><td>${t.product || ''}</td><td>${t.spec || ''}</td><td>${t.lot || ''}</td><td>kg</td><td>${t.weight.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td><td contenteditable="true">${t.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td><td contenteditable="true">${t.notes || ''}</td></tr>`).join('');
-    const emptyRowsHtml = Array(Math.max(0, 15 - filtered.length)).fill('<tr><td colspan="9" style="height: 25px;">&nbsp;</td></tr>').join('');
+    const itemsHtml = combinedItems.map(item => `<tr>
+        <td>${item.date}</td> <td>${item.brand || ''}</td><td>${item.product || ''}</td>
+        <td>${item.spec || ''}</td><td>${item.lot || ''}</td><td>${item.unit}</td>
+        <td>${item.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+        <td contenteditable="true">${item.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+        <td contenteditable="true">${item.notes || ''}</td>
+    </tr>`).join('');
+    
+    const emptyRowsHtml = Array(Math.max(0, 15 - combinedItems.length)).fill('<tr><td colspan="9" style="height: 25px;">&nbsp;</td></tr>').join('');
+    const firstDestination = filteredTransactions.find(t => t.destination)?.destination || '';
 
     document.getElementById('invoice-content').innerHTML = `
         <div class="invoice-header"><h2 class="invoice-title">거래명세표</h2></div>
         <div class="invoice-info"><div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>자</td><td class="label-td">사업자번호</td><td>101-02-35223</td></tr><tr><td class="label-td">상호</td><td>그루텍스</td></tr><tr><td class="label-td">주소</td><td>서울시 도봉구 노해로 397-15 백상빌딩 1005호</td></tr></table></div><div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>받<br>는<br>자</td><td class="label-td">사업자번호</td><td contenteditable="true">${document.getElementById('recipient-reg-no').value}</td></tr><tr><td class="label-td">상호</td><td contenteditable="true">${recipientCompany}</td></tr><tr><td class="label-td">주소</td><td contenteditable="true">${document.getElementById('recipient-address').value}</td></tr></table></div></div>
         <div class="invoice-items"><table><thead><tr><th colspan="9" style="text-align:left; padding-left:10px;">작성일자: ${today}</th></tr> <tr><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>단위</th><th>수량</th><th>단가</th><th>비고</th></tr> </thead><tbody>${itemsHtml}${emptyRowsHtml}</tbody></table></div>
-        <div class="invoice-footer"><table><tr><td style="width:15%; text-align:center; font-weight:bold; background-color:#f2f2f2;">도착지</td><td contenteditable="true" style="text-align:left; padding-left:10px;">${filtered.length > 0 ? filtered[0].destination : ''}</td></tr></table></div>
+        <div class="invoice-footer"><table><tr><td style="width:15%; text-align:center; font-weight:bold; background-color:#f2f2f2;">도착지</td><td contenteditable="true" style="text-align:left; padding-left:10px;">${firstDestination}</td></tr></table></div>
         <div class="invoice-footer"><table><tr><td style="width:15%; text-align:center; font-weight:bold; background-color:#f2f2f2;">비 고</td><td contenteditable="true" style="height: 80px; text-align:left; vertical-align:top; padding: 5px;"></td></tr></table></div>
         <div class="invoice-company-info" style="margin-top: 30px; padding: 15px; border-top: 2px solid #333; text-align: center;"><div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><span style="font-size: 18px; font-weight: bold; letter-spacing: 3px;">그루텍스</span><span style="font-size: 16px; margin-left: 10px;">| GROOOTEX</span></div><div style="font-size: 11px; color: #333; line-height: 1.4;"><p style="font-weight: bold; margin-bottom: 5px;">#1002, 10F, Backsang building, 397-15, Nohae-ro, Dobong-gu, Seoul, Korea (01415)</p><p>Tel: 82 2 997 8566  Fax: 82 2 997 4888  e-mail: groootex@groootex.com</p></div></div>`;
     document.getElementById('invoice-wrapper').style.display = 'block';
 }
+
 function printInvoice() { window.print(); }
+
 function saveInvoiceAsPDF() {
     html2pdf(document.getElementById('invoice-content'), {
         margin: 10, filename: '거래명세표.pdf', image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     });
 }
+
 function generateBill() {
     document.getElementById('invoice-wrapper').style.display = 'none';
     const recipientCompany = document.getElementById('recipient-company').value.trim();
@@ -1064,24 +1099,33 @@ function generateBill() {
     if (!recipientCompany || !startDate || !endDate) {
         return alert('(*) 필수 항목(회사명, 날짜 범위)을 입력해주세요.');
     }
-    const filtered = transactions.filter(t => {
-        return new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) &&
-               (t.type === '출고' || t.type === '입고') &&
-               t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
-    }).sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    const itemsHtml = filtered.map(t => {
-        const quantity = t.type === '입고' ? -t.weight : t.weight;
-        const subtotal = quantity * t.unitPrice;
-        return `
-        <tr>
-            <td contenteditable="true">${t.date}</td><td contenteditable="true">${t.brand || ''}</td>
-            <td contenteditable="true">${t.product || ''}</td><td contenteditable="true">${t.spec || ''}</td>
-            <td contenteditable="true">${t.lot || ''}</td><td contenteditable="true">kg</td>
-            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${t.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+
+    const filteredTransactions = transactions.filter(t => new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) && (t.type === '출고' || t.type === '입고') && t.company.trim().toLowerCase() === recipientCompany.toLowerCase());
+    const filteredSales = sales.filter(s => new Date(s.date) >= new Date(startDate) && new Date(s.date) <= new Date(endDate) && s.company.trim().toLowerCase() === recipientCompany.toLowerCase());
+
+    let combinedItems = [];
+    filteredTransactions.forEach(t => combinedItems.push({
+        date: t.date, brand: t.brand, product: t.product, spec: t.spec, lot: t.lot, unit: 'kg',
+        quantity: t.type === '입고' ? -t.weight : t.weight,
+        unitPrice: t.unitPrice, notes: t.notes
+    }));
+    filteredSales.forEach(s => combinedItems.push({
+        date: s.date, brand: s.brand, product: s.product, spec: s.spec, lot: '', unit: s.unit,
+        quantity: s.quantity, unitPrice: s.sellingPrice, notes: s.notes
+    }));
+
+    combinedItems.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const itemsHtml = combinedItems.map(item => {
+        const subtotal = item.quantity * item.unitPrice;
+        return `<tr>
+            <td contenteditable="true">${item.date}</td><td contenteditable="true">${item.brand || ''}</td>
+            <td contenteditable="true">${item.product || ''}</td><td contenteditable="true">${item.spec || ''}</td>
+            <td contenteditable="true">${item.lot || ''}</td><td contenteditable="true">${item.unit}</td>
+            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${item.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${item.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
             <td class="row-total">${Math.round(subtotal).toLocaleString()}</td>
-            <td contenteditable="true">${t.notes || ''}</td>
+            <td contenteditable="true">${item.notes || ''}</td>
             <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculateBillTotals();">삭제</button></td>
         </tr> `}).join('');
     
@@ -1131,14 +1175,16 @@ function addBillItemRow() {
     newRow.innerHTML = `<td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true">kg</td><td contenteditable="true" oninput="calculateRowAndTotal(this)">0</td><td contenteditable="true" oninput="calculateRowAndTotal(this)">0</td><td class="row-total">0</td><td contenteditable="true"></td><td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculateBillTotals();">삭제</button></td>`;
 }
 
-// ================== 4-4. [수정됨] 매출 보고서 생성 함수 ==================
+// ================== 4-4. 매출 보고서 생성 함수 ==================
 function generateSalesReport() {
     const startDate = document.getElementById('filter-report-start-date').value;
     const endDate = document.getElementById('filter-report-end-date').value;
     const companyFilter = document.getElementById('filter-report-company').value.toLowerCase();
     const brandFilter = document.getElementById('filter-report-brand').value.toLowerCase();
+    const itemCategoryFilter = document.getElementById('filter-report-item-category').value.toLowerCase(); // [추가] 품목 필터 값
     const productFilter = document.getElementById('filter-report-product').value.toLowerCase();
 
+    // 1. '입출고' 데이터 중 '출고' 내역 필터링
     const outgoingTransactions = transactions.filter(t => {
         const transactionDate = new Date(t.date);
         const startCheck = !startDate || transactionDate >= new Date(startDate);
@@ -1146,9 +1192,11 @@ function generateSalesReport() {
         return t.type === '출고' && startCheck && endCheck &&
             (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
             (!brandFilter || (t.brand||'').toLowerCase().includes(brandFilter)) &&
+            (!itemCategoryFilter || '원자재'.includes(itemCategoryFilter)) && // [추가] 품목 필터 조건
             (!productFilter || (t.product || '').toLowerCase().includes(productFilter));
     });
 
+    // 2. '매출' 데이터 필터링
     const salesData = sales.filter(s => {
         const saleDate = new Date(s.date);
         const startCheck = !startDate || saleDate >= new Date(startDate);
@@ -1156,17 +1204,16 @@ function generateSalesReport() {
         return startCheck && endCheck &&
             (!companyFilter || s.company.toLowerCase().includes(companyFilter)) &&
             (!brandFilter || (s.brand||'').toLowerCase().includes(brandFilter)) &&
+            (!itemCategoryFilter || (s.itemCategory || '').toLowerCase().includes(itemCategoryFilter)) && // [추가] 품목 필터 조건
             (!productFilter || (s.product || '').toLowerCase().includes(productFilter));
     });
 
     let reportData = [];
 
+    // '출고' 데이터 변환
     outgoingTransactions.forEach(t => {
-        const matchingInbound = transactions.filter(it => 
-            it.type === '입고' && it.brand === t.brand && it.lot === t.lot
-        ).sort((a,b) => new Date(b.date) - new Date(a.date));
+        const matchingInbound = transactions.filter(it => it.type === '입고' && it.brand === t.brand && it.lot === t.lot).sort((a,b) => new Date(b.date) - new Date(a.date));
         const costPrice = matchingInbound.length > 0 ? matchingInbound[0].unitPrice : 0;
-        
         const salesAmount = t.weight * t.unitPrice;
         const costOfGoods = t.weight * costPrice;
         const totalCosts = costOfGoods + (t.otherCosts || 0);
@@ -1174,11 +1221,13 @@ function generateSalesReport() {
         
         reportData.push({
             date: t.date, company: t.company, brand: t.brand,
-            itemCategory: '제품 판매', product: t.product, spec: t.spec, lot: t.lot,
+            itemCategory: '원자재', // [수정] "제품 판매" -> "원자재"
+            product: t.product, spec: t.spec, lot: t.lot,
             quantity: t.weight, totalCosts: totalCosts, salesAmount: salesAmount, margin: margin
         });
     });
 
+    // '매출' 데이터 변환
     salesData.forEach(s => {
         reportData.push({
             date: s.date, company: s.company, brand: s.brand,

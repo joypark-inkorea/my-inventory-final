@@ -1931,7 +1931,6 @@ window.ic_renderList = ic_renderList;
 window.ic_resetFilters = ic_resetFilters;
 window.ic_exportListToCsv = ic_exportListToCsv;
 window.ic_editSelectedSheet = ic_editSelectedSheet;
-window.ic_deleteSelectedSheets = deleteSelectedSheets;
 window.ic_toggleAllListCheckboxes = ic_toggleAllListCheckboxes;
 window.ic_closeBulkUploadModal = ic_closeBulkUploadModal;
 window.ic_downloadBulkTemplate = ic_downloadBulkTemplate;
@@ -1940,4 +1939,5 @@ window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
 window.ic_deleteSelectedSheets = ic_deleteSelectedSheets;
+
 

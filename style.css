@@ -206,3 +206,49 @@ tfoot td { text-align: right; }
     margin-bottom: 10px;
 }
 
+/* START: 재고 탭 레이아웃 및 요약 테이블 스타일 */
+.inventory-layout {
+    display: grid; /* Grid 레이아웃 사용 */
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); /* 반응형 컬럼 */
+    gap: 20px; /* 섹션 간 간격 */
+}
+
+/* 필터 섹션은 항상 전체 너비 차지 */
+.inventory-layout .filter-section {
+    grid-column: 1 / -1; /* 첫 컬럼부터 마지막 컬럼까지 확장 */
+}
+
+/* 재고 현황과 요약 섹션 스타일 */
+.inventory-layout > .section:not(.filter-section) {
+    /* 기본 스타일 유지 */
+}
+
+/* 요약 테이블 스타일 */
+.inventory-summary-table {
+    margin-top: 10px; /* 위쪽 여백 */
+}
+
+.inventory-summary-table th {
+    background-color: var(--secondary-color); /* 헤더 배경색 변경 */
+    color: white;
+    text-align: center;
+}
+
+.inventory-summary-table td {
+    font-size: 13px;
+    padding: 8px 10px; /* 패딩 조정 */
+}
+.inventory-summary-table tbody tr:nth-child(even) {
+    background-color: #f9f9f9; /* 줄무늬 */
+}
+
+.inventory-summary-table tfoot td {
+    font-weight: bold;
+    background-color: #f0f0f0;
+}
+
+#total-summary-inv-weight {
+     text-align: right !important; /* 합계 오른쪽 정렬 */
+     padding-right: 10px;
+}
+/* END: 재고 탭 레이아웃 및 요약 테이블 스타일 */

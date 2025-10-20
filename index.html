@@ -93,8 +93,8 @@
             </div>
         </div>
 
-        <div id="inventory" class="tab-content">
-            <div class="section filter-section">
+       <div id="inventory" class="tab-content inventory-layout">
+    <div class="section filter-section">
                 <h3>재고 필터</h3>
                 <div class="filter-group">
                     <input type="text" id="filter-inv-brand" placeholder="브랜드 검색">
@@ -121,12 +121,30 @@
                             <td colspan="4" style="text-align:center;">합계</td>
                             <td id="total-inv-weight" style="text-align:left;"></td>
                             <td colspan="2"></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
+                       </tr>
+                </tfoot>
+            </table>
+        </div> <div class="section">
+            <h3>📊 품목별 재고 요약</h3>
+             <p style="font-size: 12px; color: #555; margin-bottom: 10px;">(동일한 브랜드/제품/스펙의 LOT별 재고 합계)</p>
+            <table class="inventory-summary-table">
+                 <thead>
+                    <tr>
+                        <th>브랜드 / 제품 / 스펙</th>
+                        <th>총 재고(kg)</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-summary-tbody">
+                    </tbody>
+                <tfoot>
+                     <tr>
+                        <td style="text-align:right; padding-right: 10px;">총 합계</td>
+                        <td id="total-summary-inv-weight" style="text-align:left;">0 kg</td>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
-        
+        </div>
         <div id="new-sales" class="tab-content">
             <div class="section">
                 <h3 id="sales-form-title">매출 등록</h3>
@@ -163,9 +181,23 @@
                         <div class="input-field"><label>비고</label><input type="text" id="sales-notes"></div>
                     </div>
                 </form>
-                <div class="btn-group" id="sales-form-buttons">
-                    <button class="btn btn-primary" onclick="addSale()">매출 등록</button>
-                </div>
+
+//매출 csv 대량 등록 추가 
+<div class="btn-group" id="sales-form-buttons">
+                <button class="btn btn-primary" onclick="addSale()">➕ 매출 등록</button>
+                <button class="btn btn-success" onclick="downloadSalesCsvTemplate()">📥 CSV 템플릿 다운로드</button>
+                <button class="btn btn-warning" onclick="document.getElementById('sales-csv-file').click()">📤 CSV 대량 등록</button>
+            </div>
+            <input type="file" id="sales-csv-file" accept=".csv" style="display: none;" onchange="handleSalesCsvUpload(event)">
+            <div id="sales-csv-preview" style="display: none; margin-top: 20px;">
+                <h4>CSV 미리보기 (첫 5줄)</h4>
+                <div id="sales-csv-content" style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;"></div>
+                <button class="btn btn-primary" onclick="processSalesCsvUpload()">📤 CSV 업로드 처리</button>
+                <button class="btn btn-secondary" onclick="cancelSalesCsvUpload()">❌ 취소</button>
+            </div>
+// 여기까지
+
+
             </div>
             <div class="section filter-section">
                 <h3>매출 내역 필터</h3>
@@ -235,9 +267,22 @@
                         <div class="input-field"><label>비고</label><input type="text" id="remit-notes"></div>
                     </div>
                 </form>
-                <div class="btn-group" id="remittance-form-buttons">
-                    <button class="btn btn-primary" onclick="addRemittance()">송금 등록</button>
-                </div>
+                
+//송금 csv 대량 등록 추가 
+<div class="btn-group" id="remittance-form-buttons">
+                <button class="btn btn-primary" onclick="addRemittance()">➕ 송금 등록</button>
+                <button class="btn btn-success" onclick="downloadRemittanceCsvTemplate()">📥 CSV 템플릿 다운로드</button>
+                <button class="btn btn-warning" onclick="document.getElementById('remit-csv-file').click()">📤 CSV 대량 등록</button>
+            </div>
+            <input type="file" id="remit-csv-file" accept=".csv" style="display: none;" onchange="handleRemittanceCsvUpload(event)">
+            <div id="remit-csv-preview" style="display: none; margin-top: 20px;">
+                <h4>CSV 미리보기 (첫 5줄)</h4>
+                <div id="remit-csv-content" style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;"></div>
+                <button class="btn btn-primary" onclick="processRemittanceCsvUpload()">📤 CSV 업로드 처리</button>
+                <button class="btn btn-secondary" onclick="cancelRemittanceCsvUpload()">❌ 취소</button>
+            </div>              
+//여기까지
+
             </div>
             <div class="section filter-section">
                 <h3>해외 송금 내역 필터</h3>
@@ -378,17 +423,18 @@
                 </div>
                 <div id="invoice-content" class="invoice"></div>
             </div>
+      
+</div>
+        <div class="invoice-wrapper printable-section" id="invoice-wrapper" style="display: none;">
+            <div id="invoice-controls" class="btn-group no-print" style="justify-content: flex-end; margin-bottom: 15px;">
+                 <button class="btn btn-info btn-sm" onclick="addInvoiceItemRow()">➕ 항목 추가</button>
+                 <button class="btn btn-primary btn-sm" onclick="printInvoice()">🖨️ 인쇄</button>
+                 <button class="btn btn-warning btn-sm" onclick="saveInvoiceAsPDF()">📄 PDF로 저장</button>
+            </div>
+            <div id="invoice-content" class="invoice"></div>
         </div>
 
-         <div class="invoice-wrapper printable-section" id="bill-wrapper" style="display: none;">
-         <div id="bill-controls">
-        <button class="btn btn-primary" onclick="printBill()">인쇄</button>
-        <button class="btn btn-info" onclick="saveBillAsPDF()">PDF로 저장</button>
-    </div>
-    <div id="bill-content" class="invoice">
-        </div>
 `;
-
 
 
          <div id="bill-content" class="invoice"></div>

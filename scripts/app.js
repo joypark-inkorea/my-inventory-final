@@ -515,7 +515,7 @@ function updateAll() {
     applyFiltersAndRender(); 
     updateDatalists();
     generateSalesReport(); 
-   displayInventorySummary(); // <-- 이 줄 추가
+    displayInventorySummary(); // 파라미터 없이 호출 (이미 올바름)
 }
 
 function showTab(tabName) {
@@ -573,7 +573,8 @@ function applyFiltersAndRender() {
         i.lot.toLowerCase().includes(invFilters.lot)
     );
     updateInventoryTable(filteredInventory);
-    displayInventorySummary(); // <-- 이 줄 추가 (인자 없이 호출, 전역 inventory 사용)
+    displayInventorySummary(); // 파라미터 없이 호출 (이미 올바름)
+
     const tranFilters = {
         type: document.getElementById('filter-tran-type').value,
         month: document.getElementById('filter-tran-month').value,
@@ -662,7 +663,7 @@ function updateInventoryTable(itemsToDisplay) {
 }
 
 // START: 품목별 재고 요약 함수 추가
-function displayInventorySummary(inventoryData) {
+function displayInventorySummary() {
     const summary = {};
     // 전체 인벤토리 데이터(필터링 안된 것)를 기준으로 요약 계산
     inventory.forEach(item => {

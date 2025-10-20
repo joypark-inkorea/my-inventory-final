@@ -33,6 +33,10 @@ let editingTransactionId = null;
 let editingSaleId = null;
 let editingRemittanceId = null;
 let ic_editingId = null;
+// START: CSV 전역 변수 추가
+let salesCsvData = null; // 매출 CSV 데이터 저장용
+let remitCsvData = null; // 해외송금 CSV 데이터 저장용
+// END: CSV 전역 변수 추가
 let currentBackupFile = null;
 
 // ================== 0. 페이지 로딩 완료 후 실행 ==================
@@ -139,6 +143,13 @@ function bindEventListeners() {
 
     document.getElementById('tran-brand').addEventListener('blur', autoFillItemDetails);
     document.getElementById('tran-lot').addEventListener('blur', autoFillItemDetails);
+// START: CSV 파일 입력 이벤트 리스너 추가
+const salesCsvEl = document.getElementById('sales-csv-file');
+if (salesCsvEl) salesCsvEl.addEventListener('change', handleSalesCsvUpload);
+const remitCsvEl = document.getElementById('remit-csv-file');
+if (remitCsvEl) remitCsvEl.addEventListener('change', handleRemittanceCsvUpload);
+// END: CSV 파일 입력 이벤트 리스너 추가
+
 }
 
 // ================== 2. Firebase 데이터 처리 (CRUD) ==================
@@ -504,6 +515,7 @@ function updateAll() {
     applyFiltersAndRender(); 
     updateDatalists();
     generateSalesReport(); 
+   displayInventorySummary(); // <-- 이 줄 추가
 }
 
 function showTab(tabName) {
@@ -546,7 +558,7 @@ function applyFiltersAndRender() {
         i.lot.toLowerCase().includes(invFilters.lot)
     );
     updateInventoryTable(filteredInventory);
-
+    displayInventorySummary(); // <-- 이 줄 추가 (인자 없이 호출, 전역 inventory 사용)
     const tranFilters = {
         type: document.getElementById('filter-tran-type').value,
         month: document.getElementById('filter-tran-month').value,
@@ -633,6 +645,38 @@ function updateInventoryTable(itemsToDisplay) {
     });
     document.getElementById('total-inv-weight').innerText = totalWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+// START: 품목별 재고 요약 함수 추가
+function displayInventorySummary(inventoryData) {
+    const summary = {};
+    // 전체 인벤토리 데이터(필터링 안된 것)를 기준으로 요약 계산
+    inventory.forEach(item => {
+        if (item.quantity < 0.0001) return; // 0 또는 아주 작은 재고는 제외
+        // 키 생성: 브랜드 / 제품 / 스펙
+        const key = `${item.brand || 'N/A'} / ${item.product || 'N/A'} / ${item.spec || 'N/A'}`;
+        summary[key] = (summary[key] || 0) + item.quantity;
+    });
+
+    const tbody = document.getElementById('inventory-summary-tbody');
+    tbody.innerHTML = '';
+    let totalSummaryWeight = 0;
+
+    // 키(브랜드/제품/스펙) 기준으로 정렬하여 표시
+    Object.keys(summary).sort().forEach(key => {
+        const quantity = summary[key];
+        totalSummaryWeight += quantity;
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${key}</td>
+            <td style="text-align: right; padding-right: 10px;">${quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+        `;
+    });
+
+    // 총 합계 업데이트
+    document.getElementById('total-summary-inv-weight').innerText = totalSummaryWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kg';
+}
+// END: 품목별 재고 요약 함수 추가
+
 
 function showItemHistoryInTransactionTab(brand, product, spec, lot) {
     showTab('transaction');
@@ -808,6 +852,133 @@ function exportSalesReportCSV() {
     downloadCSV(Papa.unparse(data, { header: true }), '매출보고서');
 }
 
+// START: CSV 처리 공통 함수 추가
+// 파일 선택 시 호출되는 공통 핸들러
+function handleCsvUpload(event, previewDivId, contentDivId, setDataCallback) {
+    const file = event.target.files[0];
+    const previewDiv = document.getElementById(previewDivId);
+    if (file && previewDiv) {
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            preview: 5, // 미리보기는 첫 5줄만
+            complete: (results) => {
+                if (results.data && results.data.length > 0) {
+                    setDataCallback(results.data); // 미리보기용 데이터 저장 (전체 아님)
+                    displayCsvPreview(results.data, results.meta.fields, contentDivId);
+                    previewDiv.style.display = 'block';
+                } else {
+                    setDataCallback(null);
+                    previewDiv.style.display = 'none';
+                    alert('CSV 파일에 유효한 데이터가 없거나 헤더만 있습니다.');
+                }
+            },
+            error: (error) => {
+                console.error('CSV 파싱 오류:', error);
+                alert(`CSV 파일을 읽는 중 오류가 발생했습니다: ${error.message}`);
+                previewDiv.style.display = 'none';
+                setDataCallback(null);
+            }
+        });
+    } else if (previewDiv) {
+        previewDiv.style.display = 'none';
+        setDataCallback(null);
+    }
+}
+
+// 미리보기 테이블 생성 함수
+function displayCsvPreview(data, headers, contentElementId) {
+    const previewContent = document.getElementById(contentElementId);
+    if (!previewContent) return;
+    let tableHTML = '<table style="width:100%; font-size: 12px; border-collapse: collapse;"><thead><tr>';
+    tableHTML += headers.map(h => `<th style="border: 1px solid #ddd; padding: 5px; background-color: #f2f2f2;">${h}</th>`).join('');
+    tableHTML += '</tr></thead><tbody>';
+    data.forEach(row => {
+        tableHTML += `<tr>${headers.map(h => `<td style="border: 1px solid #ddd; padding: 5px;">${row[h] || ''}</td>`).join('')}</tr>`;
+    });
+    tableHTML += '</tbody></table>';
+    if (data.length === 5) { // 미리보기가 5줄 꽉 찼으면 안내 문구 추가
+        tableHTML += '<p style="font-size: 11px; color: #888; margin-top: 5px;">(첫 5줄 미리보기)</p>';
+    }
+    previewContent.innerHTML = tableHTML;
+}
+
+// CSV 업로드 처리 공통 로직
+async function processCsvData(previewData, fileInputId, processRowCallback, cancelCallback, dataTypeLabel) {
+    const fileInput = document.getElementById(fileInputId);
+    const file = fileInput.files[0];
+
+    if (!file) {
+        return alert(`${dataTypeLabel} CSV 파일을 먼저 선택해주세요.`);
+    }
+    if (!previewData) { // previewData는 handleCsvUpload에서 설정됨
+         return alert(`미리보기 데이터가 없습니다. 파일을 다시 선택해주세요.`);
+    }
+
+    alert(`${dataTypeLabel} 데이터 업로드를 시작합니다. 완료 메시지가 나올 때까지 기다려주세요.`);
+
+    Papa.parse(file, { // 실제 처리는 전체 파일로 다시 파싱
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+            const rows = results.data;
+            if (!rows || rows.length === 0) {
+                cancelCallback();
+                return alert('CSV 파일에 처리할 데이터가 없습니다.');
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+            const promises = [];
+
+            rows.forEach((row, index) => {
+                const promise = processRowCallback(row, index);
+                if (promise) { // 유효성 검사 통과 및 Firestore 작업 Promise 반환 시
+                    promises.push(promise.then(() => successCount++).catch(err => {
+                        console.error(`행 ${index + 2} 처리 오류:`, err);
+                        failCount++;
+                    }));
+                } else { // 유효성 검사 실패 시
+                    failCount++;
+                }
+            });
+
+            try {
+                await Promise.all(promises); // 모든 Firestore 작업 기다리기
+                alert(`${dataTypeLabel} CSV 처리 완료: 성공 ${successCount}건, 실패 ${failCount}건.`);
+            } catch (batchError) {
+                // Firestore 배치 작업 중 하나라도 실패하면 여기로 올 수 있음 (개별 처리 시는 위에서 잡힘)
+                console.error(`${dataTypeLabel} 일괄 처리 중 오류:`, batchError);
+                alert(`${dataTypeLabel} 처리 중 일부 오류 발생. 성공 ${successCount}건, 실패 ${failCount}건 이상.`);
+            } finally {
+                cancelCallback(); // 미리보기 닫기 및 관련 상태 초기화
+                // 데이터가 변경되었으므로 관련 테이블 업데이트 (예: displaySales(), displayRemittances())
+                // 이 부분은 각 탭의 process 함수 내에서 호출되거나 여기서 직접 호출할 수 있음
+                // 예시: if (dataTypeLabel === '매출') applySalesFiltersAndRender();
+                //       if (dataTypeLabel === '해외송금') applyRemittanceFiltersAndRender();
+                // updateAll()을 호출하면 모든 데이터가 리프레시되지만, Firestore 리스너가 있다면 자동으로 반영될 수 있음
+            }
+        },
+        error: (error) => {
+            console.error('CSV 전체 파싱 오류:', error);
+            alert(`CSV 파일 처리 중 오류가 발생했습니다: ${error.message}`);
+            cancelCallback();
+        }
+    });
+}
+
+// CSV 미리보기 및 파일 선택 취소 공통 함수
+function cancelCsvUpload(fileInputId, previewDivId, resetDataCallback) {
+    const fileInput = document.getElementById(fileInputId);
+    const previewDiv = document.getElementById(previewDivId);
+    if (fileInput) fileInput.value = ''; // 파일 선택 초기화
+    if (previewDiv) previewDiv.style.display = 'none'; // 미리보기 숨기기
+    resetDataCallback(); // 해당 CSV 데이터 변수 초기화 (예: salesCsvData = null)
+}
+// END: CSV 처리 공통 함수 추가
+
+
+
 // ================== 4-1. 신규 매출 탭 관련 함수 ==================
 
 function calculateSales() {
@@ -916,6 +1087,47 @@ function exportSalesCSV() {
     downloadCSV(Papa.unparse(csvData), '매출내역');
 }
 
+// START: 매출 CSV 관련 함수 추가
+function downloadSalesCsvTemplate() {
+    const headers = ["날짜*", "업체*", "브랜드*", "품목*", "제품", "스펙", "수량*", "단위*", "판가(원)*", "원가(원)", "비고"];
+    const csv = headers.join(',') + '\n';
+    downloadCSV(csv, '매출_등록_템플릿');
+}
+
+function handleSalesCsvUpload(event) {
+    handleCsvUpload(event, 'sales-csv-preview', 'sales-csv-content', (data) => { salesCsvData = data; });
+}
+
+function processSalesCsvUpload() {
+    processCsvData(salesCsvData, 'sales-csv-file', (row, index) => {
+        const sale = {
+            date: row['날짜*']?.trim() || '',
+            company: row['업체*']?.trim() || '',
+            brand: row['브랜드*']?.trim() || '',
+            itemCategory: row['품목*']?.trim() || '',
+            product: row['제품']?.trim() || '',
+            spec: row['스펙']?.trim() || '',
+            quantity: Number(row['수량*']) || 0,
+            unit: row['단위*']?.trim() || 'kg',
+            sellingPrice: Number(row['판가(원)*']) || 0,
+            costPrice: Number(row['원가(원)']) || 0,
+            notes: row['비고']?.trim() || ''
+        };
+        sale.totalSales = sale.quantity * sale.sellingPrice;
+        sale.totalMargin = sale.totalSales - (sale.quantity * sale.costPrice);
+
+        if (!sale.date || !sale.company || !sale.brand || !sale.itemCategory || sale.quantity <= 0 || sale.sellingPrice < 0) {
+            console.error(`매출 CSV 유효성 검사 실패 (행 ${index + 2}):`, row);
+            return null; // 유효하지 않으면 null 반환
+        }
+        return salesCollection.add(sale); // Firestore에 추가하는 Promise 반환
+    }, cancelSalesCsvUpload, '매출');
+}
+
+function cancelSalesCsvUpload() {
+    cancelCsvUpload('sales-csv-file', 'sales-csv-preview', () => { salesCsvData = null; });
+}
+// END: 매출 CSV 관련 함수 추가
 
 // ================== 4-2. 신규 해외송금 탭 관련 함수 ==================
 
@@ -1017,8 +1229,49 @@ function exportRemittanceCSV() {
     downloadCSV(Papa.unparse(csvData), '해외송금내역');
 }
 
+// START: 해외송금 CSV 관련 함수 추가
+function downloadRemittanceCsvTemplate() {
+    const headers = ["날짜*", "업체*", "브랜드*", "품목*", "제품", "스펙", "수량*", "단위*", "단가(원)*", "비고"];
+    const csv = headers.join(',') + '\n';
+    downloadCSV(csv, '해외송금_등록_템플릿');
+}
+
+function handleRemittanceCsvUpload(event) {
+    handleCsvUpload(event, 'remit-csv-preview', 'remit-csv-content', (data) => { remitCsvData = data; });
+}
+
+function processRemittanceCsvUpload() {
+    processCsvData(remitCsvData, 'remit-csv-file', (row, index) => {
+        const remit = {
+            date: row['날짜*']?.trim() || '',
+            company: row['업체*']?.trim() || '',
+            brand: row['브랜드*']?.trim() || '',
+            itemCategory: row['품목*']?.trim() || '',
+            product: row['제품']?.trim() || '',
+            spec: row['스펙']?.trim() || '',
+            quantity: Number(row['수량*']) || 0,
+            unit: row['단위*']?.trim() || 'kg',
+            unitPrice: Number(row['단가(원)*']) || 0,
+            notes: row['비고']?.trim() || ''
+        };
+        remit.totalAmount = remit.quantity * remit.unitPrice;
+
+        if (!remit.date || !remit.company || !remit.brand || !remit.itemCategory || remit.quantity <= 0 || remit.unitPrice < 0) {
+            console.error(`해외송금 CSV 유효성 검사 실패 (행 ${index + 2}):`, row);
+            return null; // 유효하지 않으면 null 반환
+        }
+        return remittancesCollection.add(remit); // Firestore에 추가하는 Promise 반환
+    }, cancelRemittanceCsvUpload, '해외송금');
+}
+
+function cancelRemittanceCsvUpload() {
+    cancelCsvUpload('remit-csv-file', 'remit-csv-preview', () => { remitCsvData = null; });
+}
+// END: 해외송금 CSV 관련 함수 추가
+
 
 // ================== 4-3. 거래명세서/청구서 ==================
+// START: generateInvoice 함수 교체
 function generateInvoice() {
     const recipientCompany = document.getElementById('recipient-company').value.trim();
     const startDate = document.getElementById('invoice-start-date').value;
@@ -1029,56 +1282,105 @@ function generateInvoice() {
         return alert('(*) 필수 항목(회사명, 날짜 범위)을 입력해주세요.');
     }
 
+    // 1. 입출고 데이터 필터링
     const filteredTransactions = transactions.filter(t => {
         return new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) &&
                (transactionType === 'all' || t.type === transactionType) &&
                t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
     });
 
-    const filteredSales = sales.filter(s => {
-        return new Date(s.date) >= new Date(startDate) && new Date(s.date) <= new Date(endDate) &&
-               (transactionType === 'all' || transactionType === '출고') &&
-               s.company.trim().toLowerCase() === recipientCompany.toLowerCase();
-    });
+    // 2. 매출 데이터 필터링 (출고 또는 전체 선택 시에만)
+    const filteredSales = (transactionType === 'all' || transactionType === '출고')
+        ? sales.filter(s => {
+              return new Date(s.date) >= new Date(startDate) && new Date(s.date) <= new Date(endDate) &&
+                     s.company.trim().toLowerCase() === recipientCompany.toLowerCase();
+          })
+        : [];
 
+    // 3. 데이터 병합 및 정렬
     let combinedItems = [];
     filteredTransactions.forEach(t => combinedItems.push({
+        isTransaction: true, // 데이터 출처 구분
         date: t.date, brand: t.brand, product: t.product, spec: t.spec, lot: t.lot,
         unit: 'kg', quantity: t.weight, unitPrice: t.unitPrice, notes: t.notes, destination: t.destination
     }));
     filteredSales.forEach(s => combinedItems.push({
-        date: s.date, brand: s.brand, product: s.product, spec: s.spec, lot: '',
-        unit: s.unit, quantity: s.quantity, unitPrice: s.sellingPrice, notes: s.notes, destination: ''
+        isTransaction: false, // 데이터 출처 구분
+        date: s.date, brand: s.brand, product: s.product, spec: s.spec, lot: '', // 매출엔 LOT 없음
+        unit: s.unit, quantity: s.quantity, unitPrice: s.sellingPrice, notes: s.notes, destination: '' // 매출엔 도착지 없음
     }));
 
-    combinedItems.sort((a, b) => new Date(a.date) - new Date(b.date));
+    combinedItems.sort((a, b) => new Date(a.date) - new Date(b.date)); // 날짜순 정렬
 
     if (combinedItems.length === 0) {
-        alert('해당 조건에 맞는 거래가 없습니다.');
+        alert('해당 조건에 맞는 거래 또는 매출 내역이 없습니다.');
         return document.getElementById('invoice-wrapper').style.display = 'none';
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const itemsHtml = combinedItems.map(item => `<tr>
-        <td>${item.date}</td> <td>${item.brand || ''}</td><td>${item.product || ''}</td>
-        <td>${item.spec || ''}</td><td>${item.lot || ''}</td><td>${item.unit}</td>
-        <td>${item.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-        <td contenteditable="true">${item.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-        <td contenteditable="true">${item.notes || ''}</td>
-    </tr>`).join('');
-    
-    const emptyRowsHtml = Array(Math.max(0, 15 - combinedItems.length)).fill('<tr><td colspan="9" style="height: 25px;">&nbsp;</td></tr>').join('');
-    const firstDestination = filteredTransactions.find(t => t.destination)?.destination || '';
+    let totalAmount = 0; // 총 금액 계산용
 
+    // 4. HTML 생성 (데이터 출처에 따라 약간 다르게 표시 가능)
+    const itemsHtml = combinedItems.map(item => {
+        const amount = item.quantity * item.unitPrice;
+        totalAmount += amount; // 합계 계산
+        // 매출 데이터는 단가 편집 불가, 입출고는 가능하도록 설정
+        const priceEditable = item.isTransaction ? 'contenteditable="true"' : '';
+        const quantityDisplay = item.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        const unitPriceDisplay = item.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        const amountDisplay = Math.round(amount).toLocaleString(); // 금액은 반올림
+
+        return `<tr class="invoice-item-row">
+            <td contenteditable="true">${item.date}</td>
+            <td contenteditable="true">${item.brand || ''}</td>
+            <td contenteditable="true">${item.product || ''}</td>
+            <td contenteditable="true">${item.spec || ''}</td>
+            <td contenteditable="true">${item.lot || ''}</td>
+            <td contenteditable="true">${item.unit}</td>
+            <td contenteditable="true" class="invoice-quantity">${quantityDisplay}</td>
+            <td ${priceEditable} class="invoice-price">${unitPriceDisplay}</td>
+            <td class="invoice-amount">${amountDisplay}</td>
+            <td contenteditable="true">${item.notes || ''}</td>
+            <td><button class="btn btn-danger btn-sm no-print" onclick="this.closest('tr').remove(); updateInvoiceTotals();">X</button></td>
+        </tr>`;
+    }).join('');
+
+    const emptyRowsHtml = Array(Math.max(0, 15 - combinedItems.length)).fill('<tr><td colspan="11" style="height: 25px;">&nbsp;</td></tr>').join('');
+    const firstDestination = filteredTransactions.find(t => t.destination)?.destination || document.getElementById('recipient-address').value || ''; // 주소 우선순위
+
+    // 5. 최종 HTML 렌더링 (테이블 컬럼 개수 맞추기: 11개)
     document.getElementById('invoice-content').innerHTML = `
         <div class="invoice-header"><h2 class="invoice-title">거래명세표</h2></div>
-        <div class="invoice-info"><div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>자</td><td class="label-td">사업자번호</td><td>101-02-35223</td></tr><tr><td class="label-td">상호</td><td>그루텍스</td></tr><tr><td class="label-td">주소</td><td>서울시 도봉구 노해로 397-15 백상빌딩 1005호</td></tr></table></div><div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>받<br>는<br>자</td><td class="label-td">사업자번호</td><td contenteditable="true">${document.getElementById('recipient-reg-no').value}</td></tr><tr><td class="label-td">상호</td><td contenteditable="true">${recipientCompany}</td></tr><tr><td class="label-td">주소</td><td contenteditable="true">${document.getElementById('recipient-address').value}</td></tr></table></div></div>
-        <div class="invoice-items"><table><thead><tr><th colspan="9" style="text-align:left; padding-left:10px;">작성일자: ${today}</th></tr> <tr><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>단위</th><th>수량</th><th>단가</th><th>비고</th></tr> </thead><tbody>${itemsHtml}${emptyRowsHtml}</tbody></table></div>
+        <div class="invoice-info">
+            <div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>자</td><td class="label-td">사업자번호</td><td>101-02-35223</td></tr><tr><td class="label-td">상호</td><td>그루텍스</td></tr><tr><td class="label-td">주소</td><td>서울시 도봉구 노해로 397-15 백상빌딩 1005호</td></tr></table></div>
+            <div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>받<br>는<br>자</td><td class="label-td">사업자번호</td><td contenteditable="true">${document.getElementById('recipient-reg-no').value}</td></tr><tr><td class="label-td">상호</td><td contenteditable="true">${recipientCompany}</td></tr><tr><td class="label-td">주소</td><td contenteditable="true">${document.getElementById('recipient-address').value}</td></tr></table></div>
+        </div>
+        <div class="invoice-items">
+            <table id="invoice-items-table">
+                <thead>
+                    <tr><th colspan="11" style="text-align:left; padding-left:10px;">작성일자: ${today}</th></tr>
+                    <tr><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>단위</th><th>수량</th><th>단가</th><th>금액</th><th>비고</th><th class="no-print" style="width: 50px;">삭제</th></tr>
+                </thead>
+                <tbody id="invoice-tbody">${itemsHtml}${emptyRowsHtml}</tbody>
+                <tfoot>
+                    <tr><td colspan="8" style="text-align: right; font-weight: bold;">총 합계 금액</td><td id="invoice-total-amount" style="text-align: right; font-weight: bold;">${Math.round(totalAmount).toLocaleString()}</td><td colspan="2"></td></tr>
+                </tfoot>
+            </table>
+        </div>
         <div class="invoice-footer"><table><tr><td style="width:15%; text-align:center; font-weight:bold; background-color:#f2f2f2;">도착지</td><td contenteditable="true" style="text-align:left; padding-left:10px;">${firstDestination}</td></tr></table></div>
         <div class="invoice-footer"><table><tr><td style="width:15%; text-align:center; font-weight:bold; background-color:#f2f2f2;">비 고</td><td contenteditable="true" style="height: 80px; text-align:left; vertical-align:top; padding: 5px;"></td></tr></table></div>
         <div class="invoice-company-info" style="margin-top: 30px; padding: 15px; border-top: 2px solid #333; text-align: center;"><div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><span style="font-size: 18px; font-weight: bold; letter-spacing: 3px;">그루텍스</span><span style="font-size: 16px; margin-left: 10px;">| GROOOTEX</span></div><div style="font-size: 11px; color: #333; line-height: 1.4;"><p style="font-weight: bold; margin-bottom: 5px;">#1002, 10F, Backsang building, 397-15, Nohae-ro, Dobong-gu, Seoul, Korea (01415)</p><p>Tel: 82 2 997 8566  Fax: 82 2 997 4888  e-mail: groootex@groootex.com</p></div></div>`;
+
     document.getElementById('invoice-wrapper').style.display = 'block';
+    // 이벤트 리스너 추가 (동적 업데이트용)
+    const invoiceTable = document.getElementById('invoice-items-table');
+    if (invoiceTable) {
+        invoiceTable.removeEventListener('input', handleInvoiceTableInput); // 기존 리스너 제거
+        invoiceTable.addEventListener('input', handleInvoiceTableInput); // 새 리스너 추가
+    }
 }
+// END: generateInvoice 함수 교체
+
 
 function printInvoice() { window.print(); }
 
@@ -1087,80 +1389,218 @@ function saveInvoiceAsPDF() {
         margin: 10, filename: '거래명세표.pdf', image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     });
+
 }
 
+// START: 거래명세표 행 추가 및 합계 계산 함수 추가
+function addInvoiceItemRow() {
+    const tbody = document.getElementById('invoice-tbody'); // ID 확인: invoice-items-table tbody
+    if (!tbody) return;
+    const newRow = tbody.insertRow();
+    newRow.className = 'invoice-item-row';
+    // 컬럼 개수 11개에 맞춤 (삭제 버튼 포함)
+    newRow.innerHTML = `
+        <td contenteditable="true">${new Date().toISOString().slice(0,10)}</td>
+        <td contenteditable="true"></td><td contenteditable="true"></td>
+        <td contenteditable="true"></td><td contenteditable="true"></td>
+        <td contenteditable="true">kg</td>
+        <td contenteditable="true" class="invoice-quantity">0</td>
+        <td contenteditable="true" class="invoice-price">0</td>
+        <td class="invoice-amount">0</td>
+        <td contenteditable="true"></td>
+        <td class="no-print"><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); updateInvoiceTotals();">X</button></td>`;
+    newRow.cells[1].focus(); // 첫 번째 편집 가능한 셀에 포커스
+    updateInvoiceTotals(); // 행 추가 후 합계 재계산
+}
+
+function updateInvoiceRowTotal(cell) {
+    const row = cell.closest('tr');
+    if (!row) return;
+    // 셀 인덱스 확인: 수량(6), 단가(7), 금액(8)
+    const qtyText = row.cells[6].innerText;
+    const qty = parseFloat(qtyText.replace(/[^0-9.-]+/g,"")) || 0; // 단위 무시 숫자 추출
+    const price = parseFloat(row.cells[7].innerText.replace(/,/g, '')) || 0;
+    row.cells[8].innerText = Math.round(qty * price).toLocaleString(); // 금액 셀 업데이트
+    updateInvoiceTotals(); // 전체 합계 재계산
+}
+
+function updateInvoiceTotals() {
+    const tbody = document.getElementById('invoice-tbody'); // ID 확인: invoice-items-table tbody
+    if (!tbody) return;
+    let totalAmount = 0;
+    tbody.querySelectorAll('tr').forEach(row => {
+        // 셀 인덱스 확인: 금액(8)
+        totalAmount += parseFloat(row.cells[8].innerText.replace(/,/g, '')) || 0; // 행 금액 사용
+    });
+    const totalAmountElement = document.getElementById('invoice-total-amount');
+    if (totalAmountElement) {
+        totalAmountElement.innerText = Math.round(totalAmount).toLocaleString();
+    }
+}
+// END: 거래명세표 행 추가 및 합계 계산 함수 추가
+
+
+
+
+// START: generateBill 함수 교체
 function generateBill() {
-    document.getElementById('invoice-wrapper').style.display = 'none';
+    document.getElementById('invoice-wrapper').style.display = 'none'; // 명세서 숨기기
     const recipientCompany = document.getElementById('recipient-company').value.trim();
     const startDate = document.getElementById('invoice-start-date').value;
     const endDate = document.getElementById('invoice-end-date').value;
+    const transactionType = document.getElementById('invoice-transaction-type').value; // 명세서와 동일한 필터 사용
+
     if (!recipientCompany || !startDate || !endDate) {
         return alert('(*) 필수 항목(회사명, 날짜 범위)을 입력해주세요.');
     }
 
-    const filteredTransactions = transactions.filter(t => new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) && (t.type === '출고' || t.type === '입고') && t.company.trim().toLowerCase() === recipientCompany.toLowerCase());
-    const filteredSales = sales.filter(s => new Date(s.date) >= new Date(startDate) && new Date(s.date) <= new Date(endDate) && s.company.trim().toLowerCase() === recipientCompany.toLowerCase());
+    // 1. 입출고 데이터 필터링 (청구서는 보통 출고 기준이나, 명세서 필터를 따름)
+    const filteredTransactions = transactions.filter(t => {
+        return new Date(t.date) >= new Date(startDate) && new Date(t.date) <= new Date(endDate) &&
+               (transactionType === 'all' || t.type === transactionType) && // 명세서 필터 존중
+               t.company.trim().toLowerCase() === recipientCompany.toLowerCase();
+    });
 
+    // 2. 매출 데이터 필터링 (출고 또는 전체 선택 시)
+    const filteredSales = (transactionType === 'all' || transactionType === '출고')
+        ? sales.filter(s => {
+              return new Date(s.date) >= new Date(startDate) && new Date(s.date) <= new Date(endDate) &&
+                     s.company.trim().toLowerCase() === recipientCompany.toLowerCase();
+          })
+        : [];
+
+    // 3. 데이터 병합 및 정렬 (입고는 음수 수량으로 처리하여 합계 계산)
     let combinedItems = [];
     filteredTransactions.forEach(t => combinedItems.push({
+        isTransaction: true,
         date: t.date, brand: t.brand, product: t.product, spec: t.spec, lot: t.lot, unit: 'kg',
-        quantity: t.type === '입고' ? -t.weight : t.weight,
+        quantity: t.type === '입고' ? -t.weight : t.weight, // 입고는 음수로
         unitPrice: t.unitPrice, notes: t.notes
     }));
     filteredSales.forEach(s => combinedItems.push({
+        isTransaction: false,
         date: s.date, brand: s.brand, product: s.product, spec: s.spec, lot: '', unit: s.unit,
         quantity: s.quantity, unitPrice: s.sellingPrice, notes: s.notes
     }));
 
-    combinedItems.sort((a, b) => new Date(a.date) - new Date(b.date));
+    combinedItems.sort((a, b) => new Date(a.date) - new Date(b.date)); // 날짜순 정렬
 
+    // 입고 포함 시 청구서 의미가 모호해질 수 있음을 알림 (선택사항)
+    if (transactionType === 'all' && filteredTransactions.some(t => t.type === '입고')) {
+         console.warn("청구서에 '입고' 내역이 포함되었습니다. 금액 계산에 유의하세요.");
+    }
+
+    // 4. HTML 생성
     const itemsHtml = combinedItems.map(item => {
+        // 입고(음수 수량)는 금액 계산 시 제외하거나 표시만 할 수 있음. 여기선 계산에 포함.
         const subtotal = item.quantity * item.unitPrice;
-        return `<tr>
+        const priceEditable = item.isTransaction ? 'contenteditable="true"' : ''; // 매출 단가는 편집 불가
+        const quantityDisplay = item.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        const unitPriceDisplay = item.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+        return `<tr class="bill-item-row">
             <td contenteditable="true">${item.date}</td><td contenteditable="true">${item.brand || ''}</td>
             <td contenteditable="true">${item.product || ''}</td><td contenteditable="true">${item.spec || ''}</td>
             <td contenteditable="true">${item.lot || ''}</td><td contenteditable="true">${item.unit}</td>
-            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${item.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-            <td contenteditable="true" oninput="calculateRowAndTotal(this)">${item.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            <td contenteditable="true" class="bill-quantity" oninput="calculateRowAndTotal(this)">${quantityDisplay}</td>
+            <td ${priceEditable} class="bill-price" oninput="calculateRowAndTotal(this)">${unitPriceDisplay}</td>
             <td class="row-total">${Math.round(subtotal).toLocaleString()}</td>
             <td contenteditable="true">${item.notes || ''}</td>
-            <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculateBillTotals();">삭제</button></td>
+            <td class="no-print"><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculateBillTotals();">X</button></td>
         </tr> `}).join('');
-    
+
     const billWrapper = document.getElementById('bill-wrapper');
+    // 5. 최종 HTML 렌더링 (테이블 컬럼 개수 맞추기: 11개)
     billWrapper.innerHTML = `
-        <div id="bill-controls"> <button class="btn btn-success" onclick="addBillItemRow()">항목 추가</button> <button class="btn btn-primary" onclick="printBill()">인쇄</button> <button class="btn btn-warning" onclick="saveBillAsPDF()">PDF로 저장</button> </div>
+        <div id="bill-controls" class="btn-group no-print" style="justify-content: flex-end; margin-bottom: 15px;">
+            <button class="btn btn-info btn-sm" onclick="addBillItemRow()">➕ 항목 추가</button>
+            <button class="btn btn-primary btn-sm" onclick="printBill()">🖨️ 인쇄</button>
+            <button class="btn btn-warning btn-sm" onclick="saveBillAsPDF()">📄 PDF로 저장</button>
+        </div>
         <div id="bill-content" class="invoice">
             <div class="invoice-header"><h2 class="invoice-title">청 구 서</h2></div>
-            <div class="invoice-info"><div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>자</td><td class="label-td">사업자번호</td><td>101-02-35223</td></tr><tr><td class="label-td">상호</td><td>그루텍스</td></tr><tr><td class="label-td">주소</td><td>서울시 도봉구 노해로 397-15 백상빌딩 1005호</td></tr></table></div><div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>받<br>는<br>자</td><td class="label-td">사업자번호</td><td contenteditable="true">${document.getElementById('recipient-reg-no').value}</td></tr><tr><td class="label-td">상호</td><td contenteditable="true">${recipientCompany}</td></tr><tr><td class="label-td">주소</td><td contenteditable="true">${document.getElementById('recipient-address').value}</td></tr></table></div></div>
-            <div class="invoice-items"><table id="bill-items-table"><thead><tr><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>단위</th><th>수량</th><th>단가</th><th>합계</th><th>비고</th><th style="width: 60px;">관리</th></tr></thead><tbody>${itemsHtml}</tbody><tfoot><tr><td colspan="6" style="text-align: right; font-weight: bold;">수량 합계</td><td id="bill-total-quantity" style="text-align: right; font-weight: bold;">0</td><td colspan="4"></td></tr><tr><td colspan="9" style="text-align: right; font-weight: bold;">공급가액 (합계)</td><td colspan="2" id="bill-subtotal" style="text-align: right; font-weight: bold;">0</td></tr><tr><td colspan="9" style="text-align: right; font-weight: bold;">부가가치세 (VAT)</td><td colspan="2" id="bill-vat" style="text-align: right; font-weight: bold;">0</td></tr><tr><td colspan="9" style="text-align: right; font-weight: bold; background-color: #f2f2f2;">총 청구금액</td><td colspan="2" id="bill-total" style="text-align: right; font-weight: bold; background-color: #f2f2f2;">0</td></tr></tfoot></table></div>
+            <div class="invoice-info">
+                <div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>자</td><td class="label-td">사업자번호</td><td>101-02-35223</td></tr><tr><td class="label-td">상호</td><td>그루텍스</td></tr><tr><td class="label-td">주소</td><td>서울시 도봉구 노해로 397-15 백상빌딩 1005호</td></tr></table></div>
+                <div class="invoice-box"><table><tr><td class="label-td" rowspan="3" style="padding:15px 0;">공<br>급<br>받<br>는<br>자</td><td class="label-td">사업자번호</td><td contenteditable="true">${document.getElementById('recipient-reg-no').value}</td></tr><tr><td class="label-td">상호</td><td contenteditable="true">${recipientCompany} 귀하</td></tr><tr><td class="label-td">주소</td><td contenteditable="true">${document.getElementById('recipient-address').value}</td></tr></table></div>
+            </div>
+            <div class="invoice-items">
+                <table id="bill-items-table">
+                    <thead><tr><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>단위</th><th>수량</th><th>단가</th><th>합계</th><th>비고</th><th class="no-print" style="width: 50px;">삭제</th></tr></thead>
+                    <tbody id="bill-tbody">${itemsHtml}</tbody>
+                    <tfoot>
+                        <tr><td colspan="6" style="text-align: right; font-weight: bold;">수량 합계</td><td id="bill-total-quantity" style="text-align: right; font-weight: bold;">0</td><td colspan="4"></td></tr>
+                        <tr><td colspan="8" style="text-align: right; font-weight: bold;">공급가액 (합계)</td><td id="bill-subtotal" style="text-align: right; font-weight: bold;">0</td><td colspan="2"></td></tr>
+                        <tr><td colspan="8" style="text-align: right; font-weight: bold;">부가가치세 (VAT)</td><td id="bill-vat" style="text-align: right; font-weight: bold;">0</td><td colspan="2"></td></tr>
+                        <tr><td colspan="8" style="text-align: right; font-weight: bold; background-color: #f2f2f2;">총 청구금액</td><td id="bill-total" style="text-align: right; font-weight: bold; background-color: #f2f2f2;">0</td><td colspan="2"></td></tr>
+                    </tfoot>
+                </table>
+            </div>
             <div class="invoice-footer"><table><tr><td style="width:15%; text-align:center; font-weight:bold; background-color:#f2f2f2;">비 고</td><td contenteditable="true" style="height: 80px; text-align:left; vertical-align:top; padding: 5px;">은행정보: 하나은행 / 이선용(그루텍스) 221-890021-48404</td></tr></table></div>
             <div class="invoice-company-info" style="margin-top: 30px; padding: 15px; border-top: 2px solid #333; text-align: center;"><div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><span style="font-size: 18px; font-weight: bold; letter-spacing: 3px;">그루텍스</span><span style="font-size: 16px; margin-left: 10px;">| GROOOTEX</span></div><div style="font-size: 11px; color: #333; line-height: 1.4;"><p style="font-weight: bold; margin-bottom: 5px;">#1002, 10F, Backsang building, 397-15, Nohae-ro, Dobong-gu, Seoul, Korea (01415)</p><p>Tel: 82 2 997 8566  Fax: 82 2 997 4888  e-mail: groootex@groootex.com</p></div></div>
         </div>`;
-    
-    document.getElementById('bill-wrapper').style.display = 'block';
-    calculateBillTotals(); 
+
+    billWrapper.style.display = 'block';
+    calculateBillTotals(); // 초기 합계 계산
+    // 이벤트 리스너 추가 (동적 업데이트용)
+    const billTable = document.getElementById('bill-items-table');
+     if (billTable) {
+        billTable.removeEventListener('input', handleBillTableInput); // 기존 리스너 제거
+        billTable.addEventListener('input', handleBillTableInput); // 새 리스너 추가
+    }
 }
+// END: generateBill 함수 교체
+
+// START: 청구서 테이블 입력 핸들러 추가
+function handleBillTableInput(event) {
+    // 수량 또는 단가 셀이 변경되었을 때만 계산 실행
+    if (event.target.classList.contains('bill-quantity') || event.target.classList.contains('bill-price')) {
+        calculateRowAndTotal(event.target);
+    }
+}
+// END: 청구서 테이블 입력 핸들러 추가
+
+// START: 거래명세서 테이블 입력 핸들러 추가
+function handleInvoiceTableInput(event) {
+    // 수량 또는 단가 셀이 변경되었을 때만 계산 실행
+    if (event.target.classList.contains('invoice-quantity') || event.target.classList.contains('invoice-price')) {
+        updateInvoiceRowTotal(event.target);
+    }
+}
+// END: 거래명세서 테이블 입력 핸들러 추가
+
+
 function printBill() { window.print(); }
 function saveBillAsPDF() {
     html2pdf(document.getElementById('bill-content'), {
         margin: 10, filename: '청구서.pdf', image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     });
+
 }
+
+// START: calculateRowAndTotal 함수 교체
 function calculateRowAndTotal(cell) {
     const row = cell.closest('tr');
-    const qty = parseFloat(row.cells[6].innerText.replace(/,/g, '')) || 0;
+    if (!row) return;
+    // 셀 인덱스 확인: 수량(6), 단가(7), 합계(8)
+    const qtyText = row.cells[6].innerText;
+    const qty = parseFloat(qtyText.replace(/[^0-9.-]+/g,"")) || 0; // 단위 무시하고 숫자만 추출
     const price = parseFloat(row.cells[7].innerText.replace(/,/g, '')) || 0;
-    row.cells[8].innerText = Math.round(qty * price).toLocaleString();
-    calculateBillTotals();
+    row.cells[8].innerText = Math.round(qty * price).toLocaleString(); // 합계 셀 업데이트
+    calculateBillTotals(); // 전체 합계 재계산
 }
+// END: calculateRowAndTotal 함수 교체
+
+
+// START: calculateBillTotals 함수 교체
 function calculateBillTotals() {
-    const tbody = document.querySelector('#bill-items-table tbody');
+    const tbody = document.getElementById('bill-tbody'); // ID 확인: bill-items-table tbody
+    if (!tbody) return;
     let subtotal = 0, totalQty = 0;
     tbody.querySelectorAll('tr').forEach(row => {
-        totalQty += parseFloat(row.cells[6].innerText.replace(/,/g, '')) || 0;
-        subtotal += parseFloat(row.cells[8].innerText.replace(/,/g, '')) || 0;
+        // 셀 인덱스 확인: 수량(6), 합계(8)
+        totalQty += parseFloat(row.cells[6].innerText.replace(/[^0-9.-]+/g,"")) || 0; // 수량에서 숫자만 추출
+        subtotal += parseFloat(row.cells[8].innerText.replace(/,/g, '')) || 0; // 행 합계 사용
     });
     const vat = subtotal * 0.1;
     document.getElementById('bill-total-quantity').innerText = totalQty.toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -1168,10 +1608,30 @@ function calculateBillTotals() {
     document.getElementById('bill-vat').innerText = Math.round(vat).toLocaleString();
     document.getElementById('bill-total').innerText = Math.round(subtotal + vat).toLocaleString();
 }
+// END: calculateBillTotals 함수 교체
+
+
+// START: addBillItemRow 함수 교체
 function addBillItemRow() {
-    const newRow = document.querySelector('#bill-items-table tbody').insertRow();
-    newRow.innerHTML = `<td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true"></td><td contenteditable="true">kg</td><td contenteditable="true" oninput="calculateRowAndTotal(this)">0</td><td contenteditable="true" oninput="calculateRowAndTotal(this)">0</td><td class="row-total">0</td><td contenteditable="true"></td><td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculateBillTotals();">삭제</button></td>`;
+    const tbody = document.getElementById('bill-tbody'); // ID 확인: bill-items-table tbody
+    if (!tbody) return;
+    const newRow = tbody.insertRow();
+    newRow.className = 'bill-item-row';
+    // 컬럼 개수 11개에 맞춤 (삭제 버튼 포함)
+    newRow.innerHTML = `
+        <td contenteditable="true">${new Date().toISOString().slice(0,10)}</td>
+        <td contenteditable="true"></td><td contenteditable="true"></td>
+        <td contenteditable="true"></td><td contenteditable="true"></td>
+        <td contenteditable="true">kg</td>
+        <td contenteditable="true" class="bill-quantity" oninput="calculateRowAndTotal(this)">0</td>
+        <td contenteditable="true" class="bill-price" oninput="calculateRowAndTotal(this)">0</td>
+        <td class="row-total">0</td>
+        <td contenteditable="true"></td>
+        <td class="no-print"><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculateBillTotals();">X</button></td>`;
+    newRow.cells[1].focus(); // 첫 번째 편집 가능한 셀에 포커스
+    calculateBillTotals(); // 행 추가 후 합계 재계산
 }
+// END: addBillItemRow 함수 교체
 
 // ================== 4-4. 매출 보고서 생성 함수 ==================
 function generateSalesReport() {
@@ -1415,15 +1875,32 @@ window.deleteSelectedRemittances = deleteSelectedRemittances;
 window.cancelRemittanceEdit = cancelRemittanceEdit;
 window.resetRemittanceFilters = resetRemittanceFilters;
 window.exportRemittanceCSV = exportRemittanceCSV;
+// START: CSV 관련 함수 window 연결 추가
+window.downloadSalesCsvTemplate = downloadSalesCsvTemplate;
+window.handleSalesCsvUpload = handleSalesCsvUpload;
+window.processSalesCsvUpload = processSalesCsvUpload;
+window.cancelSalesCsvUpload = cancelSalesCsvUpload;
+window.downloadRemittanceCsvTemplate = downloadRemittanceCsvTemplate;
+window.handleRemittanceCsvUpload = handleRemittanceCsvUpload;
+window.processRemittanceCsvUpload = processRemittanceCsvUpload;
+window.cancelRemittanceCsvUpload = cancelRemittanceCsvUpload;
+// END: CSV 관련 함수 window 연결 추가
 window.generateInvoice = generateInvoice;
 window.printInvoice = printInvoice;
+// START: 거래명세표/청구서 관련 함수 window 연결 추가
 window.saveInvoiceAsPDF = saveInvoiceAsPDF;
+window.addInvoiceItemRow = addInvoiceItemRow; // 거래명세표 행 추가
+window.updateInvoiceTotals = updateInvoiceTotals; // 거래명세표 합계 업데이트 (내부 호출용이지만 연결)
 window.generateBill = generateBill;
-window.addBillItemRow = addBillItemRow;
+window.addBillItemRow = addBillItemRow; // 청구서 행 추가
 window.printBill = printBill;
 window.saveBillAsPDF = saveBillAsPDF;
-window.calculateRowAndTotal = calculateRowAndTotal;
-window.calculateBillTotals = calculateBillTotals;
+window.calculateRowAndTotal = calculateRowAndTotal; // 청구서 행 계산
+window.calculateBillTotals = calculateBillTotals; // 청구서 전체 합계
+window.handleBillTableInput = handleBillTableInput; // 청구서 테이블 입력 핸들러
+window.handleInvoiceTableInput = handleInvoiceTableInput; // 거래명세서 테이블 입력 핸들러
+// END: 거래명세표/청구서 관련 함수 window 연결 추가
+
 window.generateSalesReport = generateSalesReport;
 window.resetSalesReportFilters = resetSalesReportFilters;
 window.exportSalesReportCSV = exportSalesReportCSV;
@@ -1446,3 +1923,4 @@ window.ic_processBulkUpload = ic_processBulkUpload;
 window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
+

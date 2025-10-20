@@ -31,7 +31,7 @@
                 <h3 id="transaction-form-title">입출고 등록</h3>
                 <div class="input-group">
                     <div class="input-field"><label>구분*</label><select id="transaction-type" onchange="toggleOtherCostsField()"><option value="입고">입고</option><option value="출고">출고</option></select></div>
-                    <div class="input-field"><label>날짜*</label><input type="date" id="transaction-date" value="2025-10-15" required></div>
+                    <div class="input-field"><label>날짜*</label><input type="date" id="transaction-date" required></div> {/* Date value removed for default */}
                     <div class="input-field"><label>브랜드*</label><input type="text" id="tran-brand" list="brand-list" placeholder="기존 선택 또는 신규 입력" required> <datalist id="brand-list"></datalist></div>
                     <div class="input-field"><label>LOT*</label><input type="text" id="tran-lot" list="lot-list" placeholder="기존 선택 또는 신규 입력" required><datalist id="lot-list"></datalist></div>
                     <div class="input-field"><label>제품</label><input type="text" id="tran-product" placeholder="신규 입고 시 입력"></div>
@@ -91,9 +91,7 @@
                     </tfoot>
                 </table>
             </div>
-        </div>
-
-        <div id="inventory" class="tab-content inventory-layout">
+        </div> <div id="inventory" class="tab-content inventory-layout">
             <div class="section filter-section">
                 <h3>재고 필터</h3>
                 <div class="filter-group">
@@ -104,7 +102,7 @@
                 </div>
                 <button class="btn btn-secondary" onclick="resetInventoryFilters()">필터 초기화</button>
             </div>
-            <div class="section">
+            <div class="section"> {/* LOT별 상세 섹션 */}
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3>현재 재고 현황 (LOT별 상세)</h3>
                     <button class="btn btn-success" onclick="exportInventoryCSV()">CSV 내보내기</button>
@@ -125,7 +123,7 @@
                     </tfoot>
                 </table>
             </div>
-            <div class="section">
+            <div class="section"> {/* 품목별 요약 섹션 */}
                 <h3>📊 품목별 재고 요약</h3>
                  <p style="font-size: 12px; color: #555; margin-bottom: 10px;">(동일한 브랜드/제품/스펙의 LOT별 재고 합계)</p>
                 <table class="inventory-summary-table">
@@ -135,8 +133,7 @@
                             <th>총 재고(kg)</th>
                         </tr>
                     </thead>
-                    <tbody id="inventory-summary-tbody">
-                        </tbody>
+                    <tbody id="inventory-summary-tbody"></tbody>
                     <tfoot>
                          <tr>
                             <td style="text-align:right; padding-right: 10px;">총 합계</td>
@@ -513,7 +510,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
+
     <script src="scripts/app.js"></script>
 </body>
 </html>
-

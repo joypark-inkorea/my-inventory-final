@@ -6,7 +6,8 @@
     <title>그루텍스 통합 관리 시스템 v5.4 (Firebase)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <link rel="stylesheet" href="style.css"> </head>
+    <link rel="stylesheet" href="style.css"> <!-- style.css 경로 확인 -->
+</head>
 <body>
     <div class="container">
         <div class="header">
@@ -40,7 +41,7 @@
                     <div class="input-field"><label>업체*</label><input type="text" id="transaction-company" list="company-list-tran" placeholder="거래 업체명" required><datalist id="company-list-tran"></datalist></div>
                     <div class="input-field" id="other-costs-field" style="display: none;"><label>기타 비용(원)</label><input type="number" id="transaction-other-costs" placeholder="운송비, 부대비용 등"></div>
                     <div class="input-field"><label>비고</label><input type="text" id="transaction-notes"></div>
-                    <div class="input-field"><label>도착지</label><input type="text" id="transaction-destination"></div> {/* Label 수정 */}
+                    <div class="input-field"><label>도착지</label><input type="text" id="transaction-destination"></div>
                     <div class="input-field"><label>특이사항</label><input type="text" id="transaction-special-notes"></div>
                 </div>
                 <div class="btn-group" id="transaction-form-buttons">

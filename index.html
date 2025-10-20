@@ -6,8 +6,7 @@
     <title>그루텍스 통합 관리 시스템 v5.4 (Firebase)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <link rel="stylesheet" href="style.css"> <!-- style.css 경로 확인 -->
-</head>
+    <link rel="stylesheet" href="style.css"> </head>
 <body>
     <div class="container">
         <div class="header">
@@ -41,7 +40,7 @@
                     <div class="input-field"><label>업체*</label><input type="text" id="transaction-company" list="company-list-tran" placeholder="거래 업체명" required><datalist id="company-list-tran"></datalist></div>
                     <div class="input-field" id="other-costs-field" style="display: none;"><label>기타 비용(원)</label><input type="number" id="transaction-other-costs" placeholder="운송비, 부대비용 등"></div>
                     <div class="input-field"><label>비고</label><input type="text" id="transaction-notes"></div>
-                    <div class="input-field"><label>도착지</label><input type="text" id="transaction-destination"></div>
+                    <div class="input-field"><label>도착지</label><input type="text" id="transaction-destination"></div> {/* Label 수정됨 */}
                     <div class="input-field"><label>특이사항</label><input type="text" id="transaction-special-notes"></div>
                 </div>
                 <div class="btn-group" id="transaction-form-buttons">
@@ -91,7 +90,8 @@
                     </tfoot>
                 </table>
             </div>
-        </div> <div id="inventory" class="tab-content inventory-layout">
+        </div>
+        <div id="inventory" class="tab-content inventory-layout">
             <div class="section filter-section">
                 <h3>재고 필터</h3>
                 <div class="filter-group">
@@ -140,12 +140,10 @@
                             <td id="total-summary-inv-weight" style="text-align:left;">0 kg</td>
                         </tr>
                     </tfoot>
-            </table>
+                </table>
+            </div>
         </div>
-    </div>
-</div> <!-- 재고 탭 종료 -->
-
-<div id="new-sales" class="tab-content">
+        <div id="new-sales" class="tab-content">
             <div class="section">
                 <h3 id="sales-form-title">매출 등록</h3>
                 <form id="sales-form">
@@ -226,7 +224,8 @@
                     <tbody id="sales-tbody"></tbody>
                 </table>
             </div>
-        </div> <div id="remittance" class="tab-content">
+        </div>
+        <div id="remittance" class="tab-content">
             <div class="section">
                 <h3 id="remittance-form-title">해외 송금 등록</h3>
                 <form id="remittance-form">
@@ -305,7 +304,8 @@
                     <tbody id="remittance-tbody"></tbody>
                 </table>
             </div>
-        </div> <div id="import-cost" class="tab-content">
+        </div>
+        <div id="import-cost" class="tab-content">
             <div class="section printable-section">
                 <h3 id="ic-form-title">수입 정산 등록</h3>
                 <form id="ic-cost-form" onsubmit="return false;">
@@ -341,7 +341,8 @@
                     <tbody id="cost-list-tbody"></tbody>
                 </table>
             </div>
-        </div> <div id="invoice" class="tab-content">
+        </div>
+        <div id="invoice" class="tab-content">
             <div class="section">
                 <h3>거래명세표/청구서 생성</h3>
                 <div class="input-group">
@@ -367,7 +368,8 @@
                  <div id="bill-controls" class="btn-group no-print" style="justify-content: flex-end; margin-bottom: 15px;"><button class="btn btn-info btn-sm" onclick="addBillItemRow()">➕ 항목 추가</button><button class="btn btn-primary btn-sm" onclick="printBill()">🖨️ 인쇄</button><button class="btn btn-warning btn-sm" onclick="saveBillAsPDF()">📄 PDF로 저장</button></div>
                  <div id="bill-content" class="invoice"></div>
             </div>
-        </div> <div id="sales-report" class="tab-content">
+        </div>
+        <div id="sales-report" class="tab-content">
             <div class="section">
                 <h3>매출 보고서 필터</h3>
                 <div class="filter-group">
@@ -395,7 +397,8 @@
                      <tfoot><tr><td colspan="8" style="text-align:center;">총 합계</td><td id="total-sales-total-costs" style="text-align:left;"></td><td id="total-sales-amount" style="text-align:left;"></td><td id="total-sales-margin" style="text-align:left;"></td><td id="total-sales-margin-rate" style="text-align:left;"></td></tr></tfoot>
                 </table>
             </div>
-        </div> <div id="backup" class="tab-content">
+        </div>
+        <div id="backup" class="tab-content">
             <div class="section">
                 <h3>데이터 백업 및 복원</h3>
                 <p>⚠️ Firebase 클라우드에 데이터가 안전하게 저장되지만, 만약을 위해 전체 데이터를 파일로 백업할 수 있습니다.</p>
@@ -410,7 +413,8 @@
                 </div>
                 <div id="backup-status" style="margin-top: 20px; font-weight: bold;"></div>
             </div>
-        </div> </div> <div id="bulkUploadModal" class="modal">
+        </div>
+        </div> <div id="bulkUploadModal" class="modal">
         <div class="modal-content"><span class="close-button" onclick="closeBulkUploadModal()">&times;</span><h2>대량 입출고 등록</h2><div class="modal-body"><p>대량 입출고를 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.</p><div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;"><button class="btn btn-info" onclick="downloadBulkTransactionTemplate()">템플릿 다운로드</button></div><form id="bulk-upload-form"><label for="bulk-csv-file">CSV 파일 선택:</label><input type="file" id="bulk-csv-file" accept=".csv"><div class="btn-group" style="justify-content: flex-end;"><button type="button" class="btn btn-primary" onclick="processBulkUpload()">대량 입출고 처리</button><button type="button" class="btn btn-secondary" onclick="closeBulkUploadModal()">닫기</button></div></form><div id="bulk-upload-status"></div></div></div>
     </div>
     <div id="ic_bulkUploadModal" class="modal">

@@ -6,8 +6,7 @@
     <title>그루텍스 통합 관리 시스템 v5.4 (Firebase)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <link rel="stylesheet" href="style.css"> {/* style.css 경로 확인 */}
-</head>
+    <link rel="stylesheet" href="style.css"> </head>
 <body>
     <div class="container">
         <div class="header">
@@ -16,7 +15,6 @@
         </div>
 
         <div class="tab-container">
-            {/* 각 탭 버튼: onclick 이벤트 확인 */}
             <div class="tab active" onclick="showTab('transaction')">입출고 현황</div>
             <div class="tab" onclick="showTab('inventory')">재고 관리</div>
             <div class="tab" onclick="showTab('new-sales')">매출</div>
@@ -27,13 +25,10 @@
             <div class="tab" onclick="showTab('backup')">데이터 백업/복원</div>
         </div>
 
-        {/* 1. 입출고 현황 탭 */}
         <div id="transaction" class="tab-content active">
-            {/* 입출고 등록 섹션 */}
             <div class="section">
                 <h3 id="transaction-form-title">입출고 등록</h3>
                 <div class="input-group">
-                    {/* ... (입출고 폼 필드들 - 이전과 동일) ... */}
                     <div class="input-field"><label>구분*</label><select id="transaction-type" onchange="toggleOtherCostsField()"><option value="입고">입고</option><option value="출고">출고</option></select></div>
                     <div class="input-field"><label>날짜*</label><input type="date" id="transaction-date" required></div>
                     <div class="input-field"><label>브랜드*</label><input type="text" id="tran-brand" list="brand-list" placeholder="기존 선택 또는 신규 입력" required> <datalist id="brand-list"></datalist></div>
@@ -45,7 +40,7 @@
                     <div class="input-field"><label>업체*</label><input type="text" id="transaction-company" list="company-list-tran" placeholder="거래 업체명" required><datalist id="company-list-tran"></datalist></div>
                     <div class="input-field" id="other-costs-field" style="display: none;"><label>기타 비용(원)</label><input type="number" id="transaction-other-costs" placeholder="운송비, 부대비용 등"></div>
                     <div class="input-field"><label>비고</label><input type="text" id="transaction-notes"></div>
-                    <div class="input-field"><label>도착지</Lbel><input type="text" id="transaction-destination"></div>
+                    <div class="input-field"><label>도착지</label><input type="text" id="transaction-destination"></div> {/* Label 수정 */}
                     <div class="input-field"><label>특이사항</label><input type="text" id="transaction-special-notes"></div>
                 </div>
                 <div class="btn-group" id="transaction-form-buttons">
@@ -53,8 +48,7 @@
                     <button class="btn btn-warning" onclick="openBulkUploadModal()">대량 입출고 등록</button>
                 </div>
             </div>
-            {/* 입출고 내역 필터 섹션 */}
-             <div class="section filter-section">
+            <div class="section filter-section">
                 <h3>입출고 내역 필터</h3>
                 <div class="filter-group">
                     <select id="filter-tran-type"><option value="">거래구분 (전체)</option><option value="입고">입고</option><option value="출고">출고</option></select>
@@ -67,7 +61,6 @@
                 </div>
                  <button class="btn btn-secondary" onclick="resetTransactionFilters()">필터 초기화</button>
             </div>
-            {/* 입출고 내역 테이블 섹션 */}
             <div class="section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3>입출고 내역</h3>
@@ -78,7 +71,6 @@
                     </div>
                 </div>
                 <table class="transaction-table">
-                    {/* ... (테이블 thead, tbody, tfoot - 이전과 동일) ... */}
                     <thead>
                         <tr>
                              <th><input type="checkbox" id="select-all-transactions" onchange="toggleAllCheckboxes('transaction-checkbox', this.checked)"></th>
@@ -99,7 +91,6 @@
                 </table>
             </div>
         </div> <div id="inventory" class="tab-content inventory-layout">
-            {/* 재고 필터 섹션 */}
             <div class="section filter-section">
                 <h3>재고 필터</h3>
                 <div class="filter-group">
@@ -110,14 +101,12 @@
                 </div>
                 <button class="btn btn-secondary" onclick="resetInventoryFilters()">필터 초기화</button>
             </div>
-            {/* LOT별 상세 섹션 */}
             <div class="section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3>현재 재고 현황 (LOT별 상세)</h3>
                     <button class="btn btn-success" onclick="exportInventoryCSV()">CSV 내보내기</button>
                 </div>
                 <table class="inventory-table">
-                    {/* ... (테이블 thead, tbody, tfoot - 이전과 동일) ... */}
                     <thead>
                         <tr>
                             <th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>현재 수량(kg)</th><th>최초입고일</th><th>비고</th>
@@ -133,12 +122,10 @@
                     </tfoot>
                 </table>
             </div>
-            {/* 품목별 요약 섹션 */}
             <div class="section">
                 <h3>📊 품목별 재고 요약</h3>
                  <p style="font-size: 12px; color: #555; margin-bottom: 10px;">(동일한 브랜드/제품/스펙의 LOT별 재고 합계)</p>
                 <table class="inventory-summary-table">
-                    {/* ... (테이블 thead, tbody, tfoot - 이전과 동일) ... */}
                      <thead>
                         <tr>
                             <th>브랜드 / 제품 / 스펙</th>
@@ -155,12 +142,10 @@
                 </table>
             </div>
         </div> <div id="new-sales" class="tab-content">
-            {/* 매출 등록 섹션 */}
             <div class="section">
                 <h3 id="sales-form-title">매출 등록</h3>
                 <form id="sales-form">
                     <div class="input-group">
-                        {/* ... (매출 폼 필드들 - 이전과 동일) ... */}
                         <div class="input-field"><label>날짜*</label><input type="date" id="sales-date" required></div>
                         <div class="input-field"><label>업체*</label><input type="text" id="sales-company" list="company-list-tran" placeholder="거래 업체명" required></div>
                         <div class="input-field"><label>브랜드*</label><input type="text" id="sales-brand" list="brand-list" placeholder="브랜드명" required></div>
@@ -205,7 +190,6 @@
                     <button class="btn btn-secondary" onclick="cancelSalesCsvUpload()">❌ 취소</button>
                 </div>
             </div>
-            {/* 매출 내역 필터 섹션 */}
             <div class="section filter-section">
                 <h3>매출 내역 필터</h3>
                 <div class="filter-group">
@@ -219,7 +203,6 @@
                 </div>
                 <button class="btn btn-secondary" onclick="resetSalesFilters()">필터 초기화</button>
             </div>
-            {/* 매출 내역 테이블 섹션 */}
             <div class="section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3>매출 내역</h3>
@@ -230,7 +213,6 @@
                     </div>
                 </div>
                 <table class="sales-list-table">
-                    {/* ... (테이블 thead, tbody - 이전과 동일) ... */}
                     <thead>
                         <tr>
                             <th><input type="checkbox" id="select-all-sales" onchange="toggleAllCheckboxes('sales-checkbox', this.checked)"></th>
@@ -241,12 +223,10 @@
                 </table>
             </div>
         </div> <div id="remittance" class="tab-content">
-            {/* 해외 송금 등록 섹션 */}
             <div class="section">
                 <h3 id="remittance-form-title">해외 송금 등록</h3>
                 <form id="remittance-form">
                      <div class="input-group">
-                         {/* ... (해외송금 폼 필드들 - 이전과 동일) ... */}
                          <div class="input-field"><label>날짜*</label><input type="date" id="remit-date" required></div>
                          <div class="input-field"><label>업체*</label><input type="text" id="remit-company" list="company-list-tran" placeholder="거래 업체명" required></div>
                          <div class="input-field"><label>브랜드*</label><input type="text" id="remit-brand" list="brand-list" placeholder="브랜드명" required></div>
@@ -289,7 +269,6 @@
                     <button class="btn btn-secondary" onclick="cancelRemittanceCsvUpload()">❌ 취소</button>
                 </div>
             </div>
-            {/* 해외 송금 내역 필터 섹션 */}
             <div class="section filter-section">
                 <h3>해외 송금 내역 필터</h3>
                 <div class="filter-group">
@@ -303,7 +282,6 @@
                 </div>
                 <button class="btn btn-secondary" onclick="resetRemittanceFilters()">필터 초기화</button>
             </div>
-            {/* 해외 송금 내역 테이블 섹션 */}
             <div class="section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3>해외 송금 내역</h3>
@@ -314,7 +292,6 @@
                     </div>
                 </div>
                 <table class="remittance-list-table">
-                    {/* ... (테이블 thead, tbody - 이전과 동일) ... */}
                     <thead>
                         <tr>
                             <th><input type="checkbox" id="select-all-remittances" onchange="toggleAllCheckboxes('remittance-checkbox', this.checked)"></th>
@@ -325,11 +302,9 @@
                 </table>
             </div>
         </div> <div id="import-cost" class="tab-content">
-            {/* 수입 정산 등록 섹션 */}
             <div class="section printable-section">
                 <h3 id="ic-form-title">수입 정산 등록</h3>
                 <form id="ic-cost-form" onsubmit="return false;">
-                    {/* ... (수입원가 폼 내용 - 이전과 동일) ... */}
                     <h4>1. 기본 선적 정보</h4>
                     <table class="info-table"><tbody><tr><th>Shipper</th><td><input type="text" id="form-shipper" required></td><th>Terms</th><td><input type="text" id="form-terms"></td></tr><tr><th>Origin</th><td><input type="text" id="form-origin"></td><th>Method</th><td><input type="text" id="form-method"></td></tr><tr><th>ETD</th><td><input type="date" id="form-etd" required></td><th>ETA</th><td><input type="date" id="form-eta"></td></tr><tr><th>CBM</th><td><input type="text" id="form-cbm"></td><th>포장</th><td><input type="text" id="form-packing"></td></tr></tbody></table>
                     <h4>2. 품목 정보</h4>
@@ -341,7 +316,6 @@
                     <div class="btn-group" style="margin-top: 20px;"><button type="button" class="btn btn-success" onclick="ic_printForm()">인쇄</button><button type="button" class="btn btn-warning" onclick="ic_openBulkUploadModal()">대량 등록 (CSV)</button><button id="ic-submit-btn" class="btn btn-primary" onclick="ic_addCostSheet()">정산서 등록</button><button id="ic-cancel-btn" type="button" class="btn btn-secondary" onclick="ic_clearForm()" style="display:none;">취소</button></div>
                 </form>
             </div>
-            {/* 수입 정산 내역 섹션 */}
             <div class="section">
                 <h3>수입 정산 내역</h3>
                 <div class="filter-group">
@@ -356,21 +330,17 @@
                     <button class="btn btn-success" onclick="ic_exportListToCsv()">CSV로 내보내기</button>
                     <div>
                         <button class="btn btn-warning" onclick="ic_editSelectedSheet()">선택 수정</button>
-                        <button class="btn btn-danger" onclick="ic_deleteSelectedSheets()">선택 삭제</button>
-                    </div>
+                        <button class="btn btn-danger" onclick="ic_deleteSelectedSheets()">선택 삭제</button> </div>
                 </div>
                 <table id="cost-list-table" style="table-layout: auto;">
-                    {/* ... (테이블 thead, tbody - 이전과 동일) ... */}
                     <thead><tr><th style="width: 40px;"><input type="checkbox" onchange="ic_toggleAllListCheckboxes(this.checked)"></th><th>ETA</th><th>Shipper</th><th>품목</th><th>LOT</th><th>수량 (단위)</th><th>단가($)</th><th>Terms</th><th>C/O</th><th>Method</th><th>CBM</th><th>포장</th><th>관세(%)</th><th>환율</th><th>수입원가(원)</th></tr></thead>
                     <tbody id="cost-list-tbody"></tbody>
                 </table>
             </div>
         </div> <div id="invoice" class="tab-content">
-            {/* 생성 폼 섹션 */}
-             <div class="section">
+            <div class="section">
                 <h3>거래명세표/청구서 생성</h3>
                 <div class="input-group">
-                    {/* ... (폼 필드들 - 이전과 동일) ... */}
                     <div class="input-field"><label>공급받는자 (회사명) *</label><input type="text" id="recipient-company" list="company-list-invoice" placeholder="업체명 입력 또는 선택" required><datalist id="company-list-invoice"></datalist></div>
                     <div class="input-field"><label>사업자 번호</label><input type="text" id="recipient-reg-no" value=""></div>
                     <div class="input-field"><label>주소</label><input type="text" id="recipient-address" value=""></div>
@@ -381,7 +351,6 @@
                 <button class="btn btn-primary" onclick="generateInvoice()">거래명세표 생성</button>
                 <button class="btn btn-warning" onclick="generateBill()">청구서 생성</button>
             </div>
-            {/* 거래명세표 영역 */}
             <div class="invoice-wrapper printable-section" id="invoice-wrapper" style="display: none;">
                  <div id="invoice-controls" class="btn-group no-print" style="justify-content: flex-end; margin-bottom: 15px;">
                       <button class="btn btn-info btn-sm" onclick="addInvoiceItemRow()">➕ 항목 추가</button>
@@ -390,13 +359,11 @@
                  </div>
                  <div id="invoice-content" class="invoice"></div>
             </div>
-            {/* 청구서 영역 */}
             <div class="invoice-wrapper printable-section" id="bill-wrapper" style="display: none;">
                  <div id="bill-controls" class="btn-group no-print" style="justify-content: flex-end; margin-bottom: 15px;"><button class="btn btn-info btn-sm" onclick="addBillItemRow()">➕ 항목 추가</button><button class="btn btn-primary btn-sm" onclick="printBill()">🖨️ 인쇄</button><button class="btn btn-warning btn-sm" onclick="saveBillAsPDF()">📄 PDF로 저장</button></div>
                  <div id="bill-content" class="invoice"></div>
             </div>
         </div> <div id="sales-report" class="tab-content">
-            {/* 필터 섹션 */}
             <div class="section">
                 <h3>매출 보고서 필터</h3>
                 <div class="filter-group">
@@ -411,7 +378,6 @@
                 <button class="btn btn-primary" onclick="generateSalesReport()">보고서 생성</button>
                 <button class="btn btn-secondary" onclick="resetSalesReportFilters()">필터 초기화</button>
             </div>
-            {/* 보고서 내용 섹션 */}
             <div class="section" id="sales-report-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3>매출 보고서 내역 (출고 및 매출 통합)</h3>
@@ -420,7 +386,6 @@
                     </div>
                 </div>
                 <table class="sales-report-table">
-                    {/* ... (테이블 thead, tbody, tfoot - 이전과 동일) ... */}
                     <thead><tr><th>월</th><th>업체</th><th>브랜드</th><th>품목</th><th>제품</th><th>스펙</th><th>LOT</th><th>수량</th><th>총 비용(원)</th><th>매출 금액(원)</th><th>최종 마진(원)</th><th>마진율(%)</th></tr></thead>
                     <tbody id="sales-report-tbody"></tbody>
                      <tfoot><tr><td colspan="8" style="text-align:center;">총 합계</td><td id="total-sales-total-costs" style="text-align:left;"></td><td id="total-sales-amount" style="text-align:left;"></td><td id="total-sales-margin" style="text-align:left;"></td><td id="total-sales-margin-rate" style="text-align:left;"></td></tr></tfoot>
@@ -442,11 +407,9 @@
                 <div id="backup-status" style="margin-top: 20px; font-weight: bold;"></div>
             </div>
         </div> </div> <div id="bulkUploadModal" class="modal">
-        {/* ... (모달 내용 - 이전과 동일) ... */}
         <div class="modal-content"><span class="close-button" onclick="closeBulkUploadModal()">&times;</span><h2>대량 입출고 등록</h2><div class="modal-body"><p>대량 입출고를 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.</p><div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;"><button class="btn btn-info" onclick="downloadBulkTransactionTemplate()">템플릿 다운로드</button></div><form id="bulk-upload-form"><label for="bulk-csv-file">CSV 파일 선택:</label><input type="file" id="bulk-csv-file" accept=".csv"><div class="btn-group" style="justify-content: flex-end;"><button type="button" class="btn btn-primary" onclick="processBulkUpload()">대량 입출고 처리</button><button type="button" class="btn btn-secondary" onclick="closeBulkUploadModal()">닫기</button></div></form><div id="bulk-upload-status"></div></div></div>
     </div>
     <div id="ic_bulkUploadModal" class="modal">
-        {/* ... (모달 내용 - 이전과 동일) ... */}
         <div class="modal-content"><span class="close-button" onclick="ic_closeBulkUploadModal()">&times;</span><h2>수입 정산서 대량 등록</h2><div class="modal-body"><p>일괄 등록을 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.<br><b>*중요:</b> 동일한 정산서에 속한 품목들은 '그룹ID'를 반드시 동일하게 입력해야 합니다.</p><div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;"><button class="btn btn-info" onclick="ic_downloadBulkTemplate()">템플릿 다운로드</button></div><form id="ic_bulk-upload-form"><label for="ic_bulk-csv-file">CSV 파일 선택:</label><input type="file" id="ic_bulk-csv-file" accept=".csv"><div class="btn-group" style="justify-content: flex-end;"><button type="button" class="btn btn-primary" id="ic_bulk-upload-process-btn" onclick="ic_processBulkUpload()" disabled>일괄 등록 처리</button><button type="button" class="btn btn-secondary" onclick="ic_closeBulkUploadModal()">닫기</button></div></form><div id="ic_bulk-upload-status"></div></div></div>
     </div>
 
@@ -454,6 +417,5 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-    <script src="scripts/app.js"></script>
-</body>
+    <script src="scripts/app.js"></script> </body>
 </html>

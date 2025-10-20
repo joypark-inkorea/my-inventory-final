@@ -207,7 +207,7 @@ tfoot td { text-align: right; }
 }
 
 /* START: 재고 탭 레이아웃 및 요약 테이블 스타일 */
-.inventory-layout {
+.inventory-layout.active {
     display: grid; /* Grid 레이아웃 사용 */
     grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); /* 반응형 컬럼 */
     gap: 20px; /* 섹션 간 간격 */
@@ -252,3 +252,4 @@ tfoot td { text-align: right; }
      padding-right: 10px;
 }
 /* END: 재고 탭 레이아웃 및 요약 테이블 스타일 */
+

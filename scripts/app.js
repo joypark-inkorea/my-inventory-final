@@ -724,7 +724,6 @@ function updateTransactionTable(transactionsToDisplay) {
             <td>${weight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td>${unitPrice.toLocaleString('en-US')}</td>
             <td>${amount.toLocaleString('en-US')}</td>
-            <td>${(t.type === '출고' ? otherCosts : 0).toLocaleString('en-US')}</td>
             <td>${t.company}</td><td>${t.notes || ''}</td><td>${t.destination || ''}</td><td>${t.specialNotes || ''}</td>`;
     });
 
@@ -855,7 +854,7 @@ function exportTransactionCSV() {
 
 function exportSalesReportCSV() {
     const tbody = document.getElementById('sales-report-tbody');
-    const headers = ['월', '업체', '브랜드', '품목', '제품', '스펙', 'LOT', '수량', '총 비용(원)', '매출 금액(원)', '최종 마진(원)', '마진율(%)'];
+    const headers = ['월', '업체', '브랜드', '품목', '제품', '스펙', 'LOT', '수량', '총 매입(원)', '매출 금액(원)', '최종 마진(원)', '마진율(%)'];
     const data = Array.from(tbody.rows).map(row => {
         const cells = Array.from(row.cells);
         let rowData = {};

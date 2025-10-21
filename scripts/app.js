@@ -706,18 +706,16 @@ function showItemHistoryInTransactionTab(brand, product, spec, lot) {
 function updateTransactionTable(transactionsToDisplay) {
     const tbody = document.getElementById('transaction-tbody');
     tbody.innerHTML = '';
-    let totalWeight = 0, totalAmount = 0, totalOtherCosts = 0;
+    let totalWeight = 0, totalAmount = 0;
 
     transactionsToDisplay.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
         const weight = parseFloat(t.weight) || 0;
         const unitPrice = parseFloat(t.unitPrice) || 0;
-        const otherCosts = parseFloat(t.otherCosts) || 0;
         const amount = weight * unitPrice;
         
         if(t.type === '입고') totalWeight += weight; else totalWeight -= weight;
         totalAmount += amount;
-        if(t.type === '출고') totalOtherCosts += otherCosts;
-
+       
         const row = tbody.insertRow();
         row.innerHTML = `
             <td><input type="checkbox" class="transaction-checkbox" value="${t.id}"></td>
@@ -732,7 +730,6 @@ function updateTransactionTable(transactionsToDisplay) {
 
     document.getElementById('total-tran-weight').innerText = totalWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     document.getElementById('total-tran-amount').innerText = totalAmount.toLocaleString('en-US');
-    document.getElementById('total-tran-other-costs').innerText = totalOtherCosts.toLocaleString('en-US');
     document.getElementById('select-all-transactions').checked = false;
 }
 
@@ -851,7 +848,7 @@ function exportTransactionCSV() {
     const csvData = transactions.sort((a,b) => new Date(b.date) - new Date(a.date)).map(t => ({
         '거래구분': t.type, '날짜': t.date, '브랜드': t.brand, '제품': t.product, '스펙': t.spec, 'LOT': t.lot,
         '중량(kg)': t.weight, '단가(원/kg)': t.unitPrice, '금액(원)': t.weight * t.unitPrice, 
-        '기타 비용(원)': t.otherCosts || 0, '업체': t.company, '비고': t.notes, '도착지': t.destination, '특이사항': t.specialNotes
+        '업체': t.company, '비고': t.notes, '도착지': t.destination, '특이사항': t.specialNotes
     }));
     downloadCSV(Papa.unparse(csvData), '입출고현황');
 }
@@ -948,16 +945,21 @@ async function processCsvData(previewData, fileInputId, processRowCallback, canc
             const promises = [];
 
             rows.forEach((row, index) => {
-                const promise = processRowCallback(row, index);
-                if (promise) { // 유효성 검사 통과 및 Firestore 작업 Promise 반환 시
-                    promises.push(promise.then(() => successCount++).catch(err => {
-                        console.error(`행 ${index + 2} 처리 오류:`, err);
-                        failCount++;
-                    }));
-                } else { // 유효성 검사 실패 시
-                    failCount++;
-                }
-            });
+                            try {
+                                const promise = processRowCallback(row, index);
+                                if (promise) { // 유효성 검사 통과 및 Firestore 작업 Promise 반환 시
+                                    promises.push(promise.then(() => successCount++).catch(err => {
+                                        console.error(`행 ${index + 2} 처리 오류:`, err);
+                                        failCount++;
+                                    }));
+                                } else { // 유효성 검사 실패 시 (processRowCallback이 null 반환)
+                                    failCount++;
+                                }
+                            } catch (e) { // processRowCallback 자체에서 동기적 에러 발생 시
+                                console.error(`행 ${index + 2} 파싱/유효성 검사 중 동기 오류:`, e);
+                                failCount++;
+                            }
+                        });
 
             try {
                 await Promise.all(promises); // 모든 Firestore 작업 기다리기
@@ -1152,7 +1154,8 @@ function cancelSalesCsvUpload() {
 function calculateRemittance() {
     const quantity = Number(document.getElementById('remit-quantity').value) || 0;
     const unitPrice = Number(document.getElementById('remit-unit-price').value) || 0;
-    document.getElementById('remit-total-amount').value = quantity * unitPrice;
+    const total = quantity * unitPrice;
+    document.getElementById('remit-total-amount').value = total.toFixed(2); // 소수점 2자리로 고정
 }
 
 function applyRemittanceFiltersAndRender() {
@@ -1182,18 +1185,27 @@ function applyRemittanceFiltersAndRender() {
 function updateRemittanceTable(remittancesToDisplay) {
     const tbody = document.getElementById('remittance-tbody');
     tbody.innerHTML = '';
+    let totalAmountSum = 0; // 총합계 변수 추가
     remittancesToDisplay.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(r => {
+        totalAmountSum += r.totalAmount || 0; // 합계 계산
         const row = tbody.insertRow();
         row.innerHTML = `
             <td><input type="checkbox" class="remittance-checkbox" value="${r.id}"></td>
             <td>${r.date}</td><td>${r.company}</td><td>${r.brand}</td>
             <td>${r.itemCategory}</td><td>${r.product || ''}</td><td>${r.spec || ''}</td>
             <td>${r.quantity.toLocaleString()}</td><td>${r.unit}</td>
-            <td>${r.unitPrice.toLocaleString()}</td><td>${r.totalAmount.toLocaleString()}</td>
+            <td>${(r.unitPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td>${(r.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td>${r.notes || ''}</td>`;
     });
+    // 총합계 tfoot에 표시 (html에 tfoot이 추가되어 있어야 함)
+    const totalEl = document.getElementById('total-remit-amount');
+    if (totalEl) {
+        totalEl.innerText = totalAmountSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     document.getElementById('select-all-remittances').checked = false;
 }
+
 
 function editSelectedRemittance() {
     const selectedIds = Array.from(document.querySelectorAll('.remittance-checkbox:checked')).map(cb => cb.value);
@@ -1211,8 +1223,8 @@ function editSelectedRemittance() {
     document.getElementById('remit-spec').value = remittance.spec || '';
     document.getElementById('remit-quantity').value = remittance.quantity;
     document.getElementById('remit-unit').value = remittance.unit;
-    document.getElementById('remit-unit-price').value = remittance.unitPrice;
-    document.getElementById('remit-total-amount').value = remittance.totalAmount;
+   document.getElementById('remit-unit-price').value = (remittance.unitPrice || 0).toFixed(2);
+    document.getElementById('remit-total-amount').value = (remittance.totalAmount || 0).toFixed(2);
     document.getElementById('remit-notes').value = remittance.notes || '';
     
     document.getElementById('remittance-form-title').innerText = '해외 송금 수정';
@@ -1243,15 +1255,15 @@ function resetRemittanceFilters() {
 function exportRemittanceCSV() {
     const csvData = remittances.sort((a,b) => new Date(b.date) - new Date(a.date)).map(r => ({
         '날짜': r.date, '업체': r.company, '브랜드': r.brand, '품목': r.itemCategory, '제품': r.product,
-        '스펙': r.spec, '수량': r.quantity, '단위': r.unit, '단가(원)': r.unitPrice,
-        '총합계(원)': r.totalAmount, '비고': r.notes
+        '스펙': r.spec, '수량': r.quantity, '단위': r.unit, '단가($)': r.unitPrice,
+        '총합계($)': r.totalAmount, '비고': r.notes
     }));
     downloadCSV(Papa.unparse(csvData), '해외송금내역');
 }
 
 // START: 해외송금 CSV 관련 함수 추가
 function downloadRemittanceCsvTemplate() {
-    const headers = ["날짜*", "업체*", "브랜드*", "품목*", "제품", "스펙", "수량*", "단위*", "단가(원)*", "비고"];
+    const headers = ["날짜*", "업체*", "브랜드*", "품목*", "제품", "스펙", "수량*", "단위*", "단가($)*", "비고"];
     const csv = headers.join(',') + '\n';
     downloadCSV(csv, '해외송금_등록_템플릿');
 }
@@ -1271,12 +1283,13 @@ function processRemittanceCsvUpload() {
             spec: row['스펙']?.trim() || '',
             quantity: Number(row['수량*']) || 0,
             unit: row['단위*']?.trim() || 'kg',
-            unitPrice: Number(row['단가(원)*']) || 0,
+            unitPrice: Number(row['단가($)*']) || 0, // '단가(원)*' -> '단가($)*'
             notes: row['비고']?.trim() || ''
         };
-        remit.totalAmount = remit.quantity * remit.unitPrice;
+        remit.totalAmount = parseFloat((remit.quantity * remit.unitPrice).toFixed(2)); // 소수점 2자리까지 계산
 
         if (!remit.date || !remit.company || !remit.brand || !remit.itemCategory || remit.quantity <= 0 || remit.unitPrice < 0) {
+
             console.error(`해외송금 CSV 유효성 검사 실패 (행 ${index + 2}):`, row);
             return null; // 유효하지 않으면 null 반환
         }
@@ -1694,7 +1707,7 @@ function generateSalesReport() {
         const costPrice = matchingInbound.length > 0 ? matchingInbound[0].unitPrice : 0;
         const salesAmount = t.weight * t.unitPrice;
         const costOfGoods = t.weight * costPrice;
-        const totalCosts = costOfGoods + (t.otherCosts || 0);
+        const totalCosts = costOfGoods;
         const margin = salesAmount - totalCosts;
         
         reportData.push({

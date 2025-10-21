@@ -1085,7 +1085,9 @@ function cancelSaleEdit() {
     document.getElementById('sales-date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('sales-form-title').innerText = '매출 등록';
     document.getElementById('sales-form-buttons').innerHTML = `
-        <button class="btn btn-primary" onclick="addSale()">매출 등록</button>`;
+        <button class="btn btn-primary" onclick="addSale()">➕ 매출 등록</button>
+        <button class="btn btn-success" onclick="downloadSalesCsvTemplate()">📥 CSV 템플릿 다운로드</button>
+        <button class="btn btn-warning" onclick="document.getElementById('sales-csv-file').click()">📤 CSV 대량 등록</button>`;
 }
 
 function resetSalesFilters() {
@@ -1227,7 +1229,9 @@ function cancelRemittanceEdit() {
     document.getElementById('remit-date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('remittance-form-title').innerText = '해외 송금 등록';
     document.getElementById('remittance-form-buttons').innerHTML = `
-        <button class="btn btn-primary" onclick="addRemittance()">송금 등록</button>`;
+        <button class="btn btn-primary" onclick="addRemittance()">➕ 송금 등록</button>
+        <button class="btn btn-success" onclick="downloadRemittanceCsvTemplate()">📥 CSV 템플릿 다운로드</button>
+        <button class="btn btn-warning" onclick="document.getElementById('remit-csv-file').click()">📤 CSV 대량 등록</button>`;
 }
 
 function resetRemittanceFilters() {
@@ -1287,7 +1291,7 @@ function cancelRemittanceCsvUpload() {
 
 
 // ================== 4-3. 거래명세서/청구서 ==================
-// START: generateInvoice 함수 교체
+// START: generateInvoice 함수 교체 (빈 줄 제거)
 function generateInvoice() {
     const recipientCompany = document.getElementById('recipient-company').value.trim();
     const startDate = document.getElementById('invoice-start-date').value;
@@ -1360,8 +1364,9 @@ function generateInvoice() {
             <td><button class="btn btn-danger btn-sm no-print" onclick="this.closest('tr').remove(); updateInvoiceTotals();">X</button></td>
         </tr>`;
     }).join('');
-
-  const firstDestination = filteredTransactions.find(t => t.destination)?.destination || document.getElementById('recipient-address').value || ''; // 주소 우선순위
+    
+    // 이전에 빈 줄을 추가하던 로직을 삭제함
+    const firstDestination = filteredTransactions.find(t => t.destination)?.destination || document.getElementById('recipient-address').value || ''; // 주소 우선순위
 
     // 5. 최종 HTML 렌더링 (테이블 컬럼 개수 맞추기: 11개)
     document.getElementById('invoice-content').innerHTML = `
@@ -1938,5 +1943,7 @@ window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
 window.ic_deleteSelectedSheets = ic_deleteSelectedSheets;
+
+
 
 

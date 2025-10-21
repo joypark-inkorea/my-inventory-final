@@ -20,7 +20,7 @@
             <div class="tab" onclick="showTab('invoice')">거래명세표/청구서</div>
             <div class="tab" onclick="showTab('remittance')">해외송금</div>
             <div class="tab" onclick="showTab('import-cost')">수입원가 정산</div>
-            <div class="tab" onclick="showTab('new-sales')"> 일반 매출</div>            
+            <div class="tab" onclick="showTab('new-sales')">일반 매출</div>
             <div class="tab" onclick="showTab('sales-report')">매출 보고서</div>
             <div class="tab" onclick="showTab('backup')">데이터 백업/복원</div>
         </div>
@@ -74,18 +74,18 @@
                     <thead>
                         <tr>
                              <th><input type="checkbox" id="select-all-transactions" onchange="toggleAllCheckboxes('transaction-checkbox', this.checked)"></th>
-                            <th>구분</th><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>중량(kg)</th><th>단가(원/kg)</th><th>금액(원)</th><th>기타 비용(원)</th><th>업체</th><th>비고</th><th>도착지</th><th>특이사항</th>
+                            <th>구분</th><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>중량(kg)</th><th>단가(원/kg)</th><th>금액(원)</th><th>업체</th><th>비고</th><th>도착지</th><th>특이사항</th>
                         </tr>
                     </thead>
                     <tbody id="transaction-tbody"></tbody>
-                    <tfoot>
+                   <tfoot>
                         <tr>
                             <td colspan="7" style="text-align:center;">합계</td>
                             <td id="total-tran-weight" style="text-align:left;"></td>
                             <td></td>
                             <td id="total-tran-amount" style="text-align:left;"></td>
-                            <td id="total-tran-other-costs" style="text-align:left;"></td>
-                            <td colspan="4"></td>
+                            
+                            <td colspan="3"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -255,8 +255,8 @@
                                  <option value="unit">unit</option>
                              </select>
                          </div>
-                         <div class="input-field"><label>단가(원)*</label><input type="number" id="remit-unit-price" required oninput="calculateRemittance()"></div>
-                         <div class="input-field"><label>총합계(원)</label><input type="number" id="remit-total-amount" readonly></div>
+                         <div class="input-field"><label>단가($)*</label><input type="number" id="remit-unit-price" required oninput="calculateRemittance()"></div>
+                         <div class="input-field"><label>총합계($)</label><input type="number" id="remit-total-amount" readonly></div>
                          <div class="input-field"><label>비고</label><input type="text" id="remit-notes"></div>
                      </div>
                 </form>
@@ -297,12 +297,19 @@
                 </div>
                 <table class="remittance-list-table">
                     <thead>
-                        <tr>
+                     <tr>
                             <th><input type="checkbox" id="select-all-remittances" onchange="toggleAllCheckboxes('remittance-checkbox', this.checked)"></th>
-                            <th>날짜</th><th>업체</th><th>브랜드</th><th>품목</th><th>제품</th><th>스펙</th><th>수량</th><th>단위</th><th>단가(원)</th><th>총합계(원)</th><th>비고</th>
+                            <th>날짜</th><th>업체</th><th>브랜드</th><th>품목</th><th>제품</th><th>스펙</th><th>수량</th><th>단위</th><th>단가($)</th><th>총합계($)</th><th>비고</th>
                         </tr>
                     </thead>
                     <tbody id="remittance-tbody"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="10" style="text-align: right; font-weight: bold;">총 합계</td>
+                            <td id="total-remit-amount" style="text-align: left;"></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div> 
@@ -432,5 +439,4 @@
 
     <script src="scripts/app.js"></script> </body>
 </html>
-
 

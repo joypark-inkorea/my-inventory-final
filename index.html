@@ -6,7 +6,9 @@
     <title>그루텍스 통합 관리 시스템 v5.4 (Firebase)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <link rel="stylesheet" href="style.css"> </head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
 <body>
     <div class="container">
         <div class="header">
@@ -15,18 +17,68 @@
         </div>
 
         <div class="tab-container">
-            <div class="tab active" onclick="showTab('transaction')">입출고 현황</div>
+            <div class="tab active" onclick="showTab('dashboard')">대시보드</div>
+            <div class="tab" onclick="showTab('transaction')">입출고 현황</div>
             <div class="tab" onclick="showTab('inventory')">재고 관리</div>
             <div class="tab" onclick="showTab('invoice')">거래명세표/청구서</div>
             <div class="tab" onclick="showTab('remittance')">해외송금</div>
             <div class="tab" onclick="showTab('import-cost')">수입원가 정산</div>
             <div class="tab" onclick="showTab('new-sales')">일반 매출</div>
-            <div class="tab active" onclick="showTab('dashboard')">대시보드</div>
             <div class="tab" onclick="showTab('sales-report')">매출 보고서</div>
             <div class="tab" onclick="showTab('backup')">데이터 백업/복원</div>
         </div>
 
-        <div id="transaction" class="tab-content active">
+        <div id="dashboard" class="tab-content active">
+            <div class="section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="border-bottom: none; margin-bottom: 0;">경영 현황 요약</h3>
+                    <div class="input-field" style="max-width: 150px;">
+                        <label for="dashboard-year-filter" style="font-weight: normal; margin-bottom: 0;">기준 년도:</label>
+                        <select id="dashboard-year-filter"></select>
+                    </div>
+                </div>
+
+                <div class="kpi-container">
+                    <div class="kpi-card kpi-sales">
+                        <div class="kpi-title">총 매출</div>
+                        <div class="kpi-value" id="kpi-total-sales">0 원</div>
+                    </div>
+                    <div class="kpi-card kpi-margin">
+                        <div class="kpi-title">최종 마진</div>
+                        <div class="kpi-value" id="kpi-total-margin">0 원</div>
+                    </div>
+                    <div class="kpi-card kpi-rate">
+                        <div class="kpi-title">마진율</div>
+                        <div class="kpi-value" id="kpi-margin-rate">0.0 %</div>
+                    </div>
+                </div>
+
+                <div class="dashboard-layout">
+                    <div class="section chart-container">
+                        <h4>월별 실적 추이</h4>
+                        <div style="height: 350px;">
+                            <canvas id="monthly-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <h4>Top 5 브랜드 (마진 기준)</h4>
+                        <table class="dashboard-table">
+                            <thead><tr><th>순위</th><th>브랜드</th><th>최종 마진(원)</th></tr></thead>
+                            <tbody id="top-brands-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="section">
+                        <h4>Top 5 거래처 (마진 기준)</h4>
+                        <table class="dashboard-table">
+                             <thead><tr><th>순위</th><th>거래처</th><th>최종 마진(원)</th></tr></thead>
+                             <tbody id="top-companies-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="transaction" class="tab-content">
             <div class="section">
                 <h3 id="transaction-form-title">입출고 등록</h3>
                 <div class="input-group">
@@ -91,7 +143,9 @@
                     </tfoot>
                 </table>
             </div>
-        </div> <div id="inventory" class="tab-content inventory-layout">
+        </div> 
+        
+        <div id="inventory" class="tab-content inventory-layout">
             <div class="section filter-section">
                 <h3>재고 필터</h3>
                 <div class="filter-group">
@@ -380,56 +434,7 @@
                  <div id="bill-content" class="invoice"></div>
             </div>
         </div> 
-        <div id="dashboard" class="tab-content active">
-            <div class="section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 style="border-bottom: none; margin-bottom: 0;">경영 현황 요약</h3>
-                    <div class="input-field" style="max-width: 150px;">
-                        <label for="dashboard-year-filter" style="font-weight: normal; margin-bottom: 0;">기준 년도:</label>
-                        <select id="dashboard-year-filter"></select>
-                    </div>
-                </div>
-
-                <div class="kpi-container">
-                    <div class="kpi-card kpi-sales">
-                        <div class="kpi-title">총 매출</div>
-                        <div class="kpi-value" id="kpi-total-sales">0 원</div>
-                    </div>
-                    <div class="kpi-card kpi-margin">
-                        <div class="kpi-title">최종 마진</div>
-                        <div class="kpi-value" id="kpi-total-margin">0 원</div>
-                    </div>
-                    <div class="kpi-card kpi-rate">
-                        <div class="kpi-title">마진율</div>
-                        <div class="kpi-value" id="kpi-margin-rate">0.0 %</div>
-                    </div>
-                </div>
-
-                <div class="dashboard-layout">
-                    <div class="section chart-container">
-                        <h4>월별 실적 추이</h4>
-                        <div style="height: 350px;">
-                            <canvas id="monthly-chart"></canvas>
-                        </div>
-                    </div>
-                    <div class="section">
-                        <h4>Top 5 브랜드 (마진 기준)</h4>
-                        <table class="dashboard-table">
-                            <thead><tr><th>순위</th><th>브랜드</th><th>최종 마진(원)</th></tr></thead>
-                            <tbody id="top-brands-tbody"></tbody>
-                        </table>
-                    </div>
-                    <div class="section">
-                        <h4>Top 5 거래처 (마진 기준)</h4>
-                        <table class="dashboard-table">
-                             <thead><tr><th>순위</th><th>거래처</th><th>최종 마진(원)</th></tr></thead>
-                             <tbody id="top-companies-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+        
         <div id="sales-report" class="tab-content">
             <div class="section">
                 <h3>매출 보고서 필터</h3>
@@ -476,7 +481,9 @@
                 <div id="backup-status" style="margin-top: 20px; font-weight: bold;"></div>
             </div>
         </div> 
-    </div> <div id="bulkUploadModal" class="modal">
+    </div> 
+    
+    <div id="bulkUploadModal" class="modal">
         <div class="modal-content"><span class="close-button" onclick="closeBulkUploadModal()">&times;</span><h2>대량 입출고 등록</h2><div class="modal-body"><p>대량 입출고를 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.</p><div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;"><button class="btn btn-info" onclick="downloadBulkTransactionTemplate()">템플릿 다운로드</button></div><form id="bulk-upload-form"><label for="bulk-csv-file">CSV 파일 선택:</label><input type="file" id="bulk-csv-file" accept=".csv"><div class="btn-group" style="justify-content: flex-end;"><button type="button" class="btn btn-primary" onclick="processBulkUpload()">대량 입출고 처리</button><button type="button" class="btn btn-secondary" onclick="closeBulkUploadModal()">닫기</button></div></form><div id="bulk-upload-status"></div></div></div>
     </div>
     <div id="ic_bulkUploadModal" class="modal">
@@ -487,6 +494,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
-    <script src="scripts/app.js"></script> </body>
+    <script src="scripts/app.js"></script> 
+</body>
 </html>
-

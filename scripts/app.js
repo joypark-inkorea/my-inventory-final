@@ -38,6 +38,8 @@ let salesCsvData = null; // 매출 CSV 데이터 저장용
 let remitCsvData = null; // 해외송금 CSV 데이터 저장용
 // END: CSV 전역 변수 추가
 let currentBackupFile = null;
+// [추가] 대시보드 차트 인스턴스
+let dashboardChart = null;
 
 // ================== 0. 페이지 로딩 완료 후 실행 ==================
 document.addEventListener('DOMContentLoaded', () => {
@@ -69,6 +71,8 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     }).catch(error => console.error('로그아웃 실패:', error));
 });
 
+
+// --- loadAllDataFromFirebase 함수 수정 ---
 function loadAllDataFromFirebase() {
     console.log("Firestore에서 실시간 데이터 동기화를 시작합니다...");
 
@@ -86,6 +90,7 @@ function loadAllDataFromFirebase() {
         });
         console.log(`입출고 데이터 실시간 업데이트됨. 총 ${transactions.length}건`);
         updateAll();
+        updateDashboard(); // [추가]
     }, error => console.error("입출고 내역 실시간 동기화 오류:", error));
 
     importCostSheetsCollection.onSnapshot(snapshot => {
@@ -99,6 +104,7 @@ function loadAllDataFromFirebase() {
         console.log(`매출 데이터 실시간 업데이트됨. 총 ${sales.length}건`);
         applySalesFiltersAndRender();
         generateSalesReport();
+        updateDashboard(); // [추가]
     }, error => console.error("매출 내역 실시간 동기화 오류:", error));
 
     remittancesCollection.onSnapshot(snapshot => {
@@ -110,6 +116,7 @@ function loadAllDataFromFirebase() {
     initializeAppUI();
 }
 
+// --- initializeAppUI 함수 수정 ---
 function initializeAppUI() {
     console.log("UI 초기화를 시작합니다...");
     const today = new Date().toISOString().slice(0, 10);
@@ -121,11 +128,27 @@ function initializeAppUI() {
     const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
     document.getElementById('invoice-start-date').value = firstDayOfMonth;
     document.getElementById('invoice-end-date').value = today;
+    
+    // [추가] 대시보드 년도 필터 초기화
+    const yearFilter = document.getElementById('dashboard-year-filter');
+    if (yearFilter) {
+        const currentYear = new Date().getFullYear();
+        for (let i = currentYear + 1; i >= 2023; i--) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.text = `${i}년`;
+            yearFilter.add(option);
+        }
+        yearFilter.value = currentYear;
+    }
+
     bindEventListeners();
     ic_addItemRow();
+    updateDashboard(); // [추가]
     console.log("UI 초기화 완료.");
 }
 
+// --- bindEventListeners 함수 수정 ---
 function bindEventListeners() {
     ['filter-inv-brand', 'filter-inv-product', 'filter-inv-spec', 'filter-inv-lot', 
      'filter-tran-type', 'filter-tran-month', 'filter-tran-brand', 'filter-tran-product', 
@@ -141,8 +164,12 @@ function bindEventListeners() {
     ['filter-remit-start-month', 'filter-remit-end-month', 'filter-remit-company', 'filter-remit-brand', 'filter-remit-item-category', 'filter-remit-product', 'filter-remit-spec']
     .forEach(id => document.getElementById(id)?.addEventListener('input', applyRemittanceFiltersAndRender));
 
+    // [추가] 대시보드 년도 필터 이벤트 리스너
+    document.getElementById('dashboard-year-filter')?.addEventListener('change', updateDashboard);
+
     document.getElementById('tran-brand').addEventListener('blur', autoFillItemDetails);
     document.getElementById('tran-lot').addEventListener('blur', autoFillItemDetails);
+
 // START: CSV 파일 입력 이벤트 리스너 추가
 const salesCsvEl = document.getElementById('sales-csv-file');
 if (salesCsvEl) salesCsvEl.addEventListener('change', handleSalesCsvUpload);
@@ -510,14 +537,17 @@ function updateDatalists() {
     document.getElementById('company-list-invoice').innerHTML = [...sets.company].sort().map(toOption).join('');
 }
 
+// --- updateAll 함수 수정 ---
 function updateAll() {
     recalculateInventory(); 
     applyFiltersAndRender(); 
     updateDatalists();
     generateSalesReport(); 
-    displayInventorySummary(); // 파라미터 없이 호출 (이미 올바름)
+    displayInventorySummary();
+    // updateDashboard(); // [수정] 이 함수는 데이터 로드 시 직접 호출되므로 여기서 중복 호출 제거
 }
 
+// --- showTab 함수 수정 ---
 function showTab(tabName) {
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -536,6 +566,8 @@ function showTab(tabName) {
 
     // 탭별 특수 처리
     if (tabName === 'sales-report') generateSalesReport();
+    if (tabName === 'dashboard') updateDashboard(); // [추가]
+
 
     // 거래명세표/청구서 탭이 아닐 경우 관련 영역 숨기기
     if (tabName !== 'invoice') {
@@ -547,8 +579,185 @@ function showTab(tabName) {
     // 'invoice' 탭일 경우, generateInvoice/generateBill 함수가 display를 'block'으로 설정합니다.
 }
 
-const ic_pFloat = (val) => parseFloat(String(val).replace(/,/g, '')) || 0;
+// ... (ic_pFloat, toggleOtherCostsField, applyFiltersAndRender 등 기존 함수들 유지)
 
+// [추가] 대시보드 관련 함수들
+/**
+ * 숫자 통화 형식으로 포맷 (예: 1,234,567 원)
+ * @param {number} num - 포맷할 숫자
+ */
+function formatCurrency(num) {
+    return `${Math.round(num).toLocaleString('ko-KR')} 원`;
+}
+
+/**
+ * 대시보드 전체 데이터를 계산하고 UI를 업데이트합니다.
+ */
+function updateDashboard() {
+    const yearFilterEl = document.getElementById('dashboard-year-filter');
+    if (!yearFilterEl) return; // 대시보드 탭이 로드되기 전이면 중단
+    
+    const selectedYear = yearFilterEl.value;
+    if (!selectedYear) return;
+
+    let totalSales = 0;
+    let totalCost = 0;
+    let monthlySales = Array(12).fill(0);
+    let monthlyMargin = Array(12).fill(0);
+    let brandMargin = {};
+    let companyMargin = {};
+
+    // 1. '출고' 거래 데이터 처리
+    transactions.forEach(t => {
+        if (t.type === '출고' && t.date.startsWith(selectedYear)) {
+            const month = new Date(t.date).getMonth(); // 0-11
+            
+            // 매출액
+            const salesAmount = (t.weight || 0) * (t.unitPrice || 0);
+            totalSales += salesAmount;
+            monthlySales[month] += salesAmount;
+            
+            // 원가
+            const matchingInbound = transactions.filter(it => it.type === '입고' && it.brand === t.brand && it.lot === t.lot).sort((a,b) => new Date(b.date) - new Date(a.date));
+            const costPrice = matchingInbound.length > 0 ? (matchingInbound[0].unitPrice || 0) : 0;
+            const costOfGoods = (t.weight || 0) * costPrice;
+            totalCost += costOfGoods;
+
+            // 마진
+            const margin = salesAmount - costOfGoods;
+            monthlyMargin[month] += margin;
+            
+            // Top 5 집계
+            if (t.brand) brandMargin[t.brand] = (brandMargin[t.brand] || 0) + margin;
+            if (t.company) companyMargin[t.company] = (companyMargin[t.company] || 0) + margin;
+        }
+    });
+
+    // 2. '일반 매출' 데이터 처리
+    sales.forEach(s => {
+        if (s.date.startsWith(selectedYear)) {
+            const month = new Date(s.date).getMonth(); // 0-11
+
+            // 매출액
+            const salesAmount = s.totalSales || 0;
+            totalSales += salesAmount;
+            monthlySales[month] += salesAmount;
+
+            // 원가
+            const costOfGoods = s.totalMargin ? (salesAmount - (s.totalMargin || 0)) : (s.quantity * s.costPrice) || 0;
+            totalCost += costOfGoods;
+
+            // 마진
+            const margin = s.totalMargin || (salesAmount - costOfGoods);
+            monthlyMargin[month] += margin;
+
+            // Top 5 집계
+            if (s.brand) brandMargin[s.brand] = (brandMargin[s.brand] || 0) + margin;
+            if (s.company) companyMargin[s.company] = (companyMargin[s.company] || 0) + margin;
+        }
+    });
+
+    // 3. KPI 카드 업데이트
+    const totalMargin = totalSales - totalCost;
+    const marginRate = totalSales !== 0 ? (totalMargin / totalSales * 100).toFixed(1) : 0;
+
+    document.getElementById('kpi-total-sales').innerText = formatCurrency(totalSales);
+    document.getElementById('kpi-total-margin').innerText = formatCurrency(totalMargin);
+    document.getElementById('kpi-margin-rate').innerText = `${marginRate} %`;
+
+    // 4. 월별 실적 차트 렌더링
+    renderDashboardChart(monthlySales, monthlyMargin, selectedYear);
+
+    // 5. Top 5 테이블 렌더링
+    const renderTop5Table = (dataMap, tbodyId) => {
+        const sortedData = Object.entries(dataMap)
+            .sort(([, marginA], [, marginB]) => marginB - marginA)
+            .slice(0, 5);
+        
+        const tbody = document.getElementById(tbodyId);
+        tbody.innerHTML = '';
+        sortedData.forEach(([name, margin], index) => {
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${name}</td>
+                <td style="text-align: right;">${formatCurrency(margin)}</td>
+            `;
+        });
+    };
+
+    renderTop5Table(brandMargin, 'top-brands-tbody');
+    renderTop5Table(companyMargin, 'top-companies-tbody');
+}
+
+/**
+ * 월별 실적 차트를 렌더링합니다.
+ * @param {number[]} salesData - 12개월치 매출 데이터
+ * @param {number[]} marginData - 12개월치 마진 데이터
+ * @param {string} year - 기준 년도
+ */
+function renderDashboardChart(salesData, marginData, year) {
+    const ctx = document.getElementById('monthly-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    if (dashboardChart) {
+        dashboardChart.destroy(); // 기존 차트 파괴
+    }
+
+    const labels = Array.from({length: 12}, (_, i) => `${year}-${(i + 1).toString().padStart(2, '0')}`);
+
+    dashboardChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '총 매출',
+                    data: salesData,
+                    backgroundColor: 'rgba(102, 126, 234, 0.7)', // --primary-color
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: '최종 마진',
+                    data: marginData,
+                    backgroundColor: 'rgba(40, 167, 69, 0.7)', // --success-color
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return (value / 1000000).toLocaleString('ko-KR') + '백만';
+                        }
+                    }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            label += formatCurrency(context.parsed.y);
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
 
 
 function toggleOtherCostsField() {

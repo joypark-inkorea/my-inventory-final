@@ -206,15 +206,16 @@ tfoot td { text-align: right; }
     margin-bottom: 10px;
 }
 
+/* START: 재고 탭 레이아웃 및 요약 테이블 스타일 */
+.inventory-layout.active {
+    display: grid; /* Grid 레이아웃 사용 */
+    grid-template-columns: 1fr 1fr; /* 2개의 컬럼을 동일한 비율로 생성 */
+    gap: 20px; /* 섹션 간 간격 */
+}
 
 /* 필터 섹션은 항상 전체 너비 차지 */
 .inventory-layout .filter-section {
-    grid-column: 1 / -1; /* 첫 컬럼부터 마지막 컬럼까지 확장 */
-}
-
-/* 재고 현황과 요약 섹션 스타일 */
-.inventory-layout > .section:not(.filter-section) {
-    /* 기본 스타일 유지 */
+    grid-column: 1 / -1; /* 필터는 여전히 전체 너비를 차지하도록 유지 (필요 시) */
 }
 
 /* 요약 테이블 스타일 */

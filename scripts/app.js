@@ -1287,7 +1287,7 @@ function cancelRemittanceCsvUpload() {
 
 
 // ================== 4-3. 거래명세서/청구서 ==================
-// START: generateInvoice 함수 교체 (빈 줄 제거)
+// START: generateInvoice 함수 교체
 function generateInvoice() {
     const recipientCompany = document.getElementById('recipient-company').value.trim();
     const startDate = document.getElementById('invoice-start-date').value;
@@ -1360,8 +1360,8 @@ function generateInvoice() {
             <td><button class="btn btn-danger btn-sm no-print" onclick="this.closest('tr').remove(); updateInvoiceTotals();">X</button></td>
         </tr>`;
     }).join('');
-    
-    // 이전에 빈 줄을 추가하던 로직을 삭제함
+
+    const emptyRowsHtml = Array(Math.max(0, 15 - combinedItems.length)).fill('<tr><td colspan="11" style="height: 25px;">&nbsp;</td></tr>').join('');
     const firstDestination = filteredTransactions.find(t => t.destination)?.destination || document.getElementById('recipient-address').value || ''; // 주소 우선순위
 
     // 5. 최종 HTML 렌더링 (테이블 컬럼 개수 맞추기: 11개)
@@ -1377,7 +1377,7 @@ function generateInvoice() {
                     <tr><th colspan="11" style="text-align:left; padding-left:10px;">작성일자: ${today}</th></tr>
                     <tr><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>단위</th><th>수량</th><th>단가</th><th>금액</th><th>비고</th><th class="no-print" style="width: 50px;">삭제</th></tr>
                 </thead>
-                <tbody id="invoice-tbody">${itemsHtml}</tbody>
+                <tbody id="invoice-tbody">${itemsHtml}${emptyRowsHtml}</tbody>
                 <tfoot>
                     <tr><td colspan="8" style="text-align: right; font-weight: bold;">총 합계 금액</td><td id="invoice-total-amount" style="text-align: right; font-weight: bold;">${Math.round(totalAmount).toLocaleString()}</td><td colspan="2"></td></tr>
                 </tfoot>
@@ -1939,3 +1939,5 @@ window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
 window.ic_deleteSelectedSheets = ic_deleteSelectedSheets;
+
+

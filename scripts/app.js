@@ -888,7 +888,7 @@ function updateInventoryTable(itemsToDisplay) {
             <td>${item.brand}</td> <td>${item.product || 'N/A'}</td> <td>${item.spec || ''}</td>
             <td>${item.lot}</td> <td>${item.quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td>${formatShortDate(item.receivedDate) || '-'}</td>
-            <td><button class="action-btn" onclick="showItemHistoryInTransactionTab('${item.brand}', '${item.product || ''}', '${item.spec || ''}', '${item.lot}')">내역 보기</button></td>`;
+            <td><button class="action-btn" onclick="showItemHistoryInTransactionTab('${item.brand}', '${item.product || ''}', '${item.spec || ''}', '${item.lot}')">내역</button></td>`;
    
      }); 
 
@@ -1270,19 +1270,31 @@ function applySalesFiltersAndRender() {
 function updateSalesTable(salesToDisplay) {
     const tbody = document.getElementById('sales-tbody');
     tbody.innerHTML = '';
+    let totalSalesSum = 0;
+    let totalMarginSum = 0;
+
     salesToDisplay.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(s => {
+        totalSalesSum += s.totalSales || 0;
+        totalMarginSum += s.totalMargin || 0;
+
         const row = tbody.insertRow();
         row.innerHTML = `
             <td><input type="checkbox" class="sales-checkbox" value="${s.id}"></td>
             <td>${s.date}</td><td>${s.company}</td><td>${s.brand}</td>
             <td>${s.itemCategory}</td><td>${s.product || ''}</td><td>${s.spec || ''}</td>
-            <td>${s.quantity.toLocaleString()}</td><td>${s.unit}</td>
+            <td>${s.quantity.toLocaleString()} ${s.unit}</td>
             <td>${s.sellingPrice.toLocaleString()}</td><td>${s.costPrice.toLocaleString()}</td>
             <td>${s.totalSales.toLocaleString()}</td><td>${s.totalMargin.toLocaleString()}</td>
             <td>${s.notes || ''}</td>`;
     });
+    
+    // 총 합계 업데이트
+    document.getElementById('total-sales-list-sales').innerText = totalSalesSum.toLocaleString();
+    document.getElementById('total-sales-list-margin').innerText = totalMarginSum.toLocaleString();
+
     document.getElementById('select-all-sales').checked = false;
 }
+
 
 function editSelectedSale() {
     const selectedIds = Array.from(document.querySelectorAll('.sales-checkbox:checked')).map(cb => cb.value);
@@ -1913,10 +1925,12 @@ function generateSalesReport() {
         const transactionDate = new Date(t.date);
         const startCheck = !startDate || transactionDate >= new Date(startDate);
         const endCheck = !endDate || transactionDate <= new Date(endDate);
-        return t.type === '출고' && startCheck && endCheck &&
+        // '원자재' 항목 필터링 로직 수정
+        const categoryCheck = !itemCategoryFilter || '원자재'.toLowerCase().includes(itemCategoryFilter);
+
+        return t.type === '출고' && startCheck && endCheck && categoryCheck &&
             (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
             (!brandFilter || (t.brand||'').toLowerCase().includes(brandFilter)) &&
-            (!itemCategoryFilter || '원자재'.includes(itemCategoryFilter)) &&
             (!productFilter || (t.product || '').toLowerCase().includes(productFilter)) &&
             (!specFilter || (t.spec || '').toLowerCase().includes(specFilter));
     });
@@ -1945,9 +1959,10 @@ function generateSalesReport() {
         
         reportData.push({
             date: t.date, company: t.company, brand: t.brand,
-            itemCategory: '원자재',
+            itemCategory: '원자재', // '항목' 컬럼에 들어갈 값
             product: t.product, spec: t.spec, lot: t.lot,
-            quantity: t.weight, totalCosts: totalCosts, salesAmount: salesAmount, margin: margin
+            quantity: t.weight, unit: 'kg', // 단위 추가
+            totalCosts: totalCosts, salesAmount: salesAmount, margin: margin
         });
     });
 
@@ -1955,7 +1970,8 @@ function generateSalesReport() {
         reportData.push({
             date: s.date, company: s.company, brand: s.brand,
             itemCategory: s.itemCategory, product: s.product, spec: s.spec, lot: '',
-            quantity: s.quantity, totalCosts: s.quantity * s.costPrice, salesAmount: s.totalSales, margin: s.totalMargin
+            quantity: s.quantity, unit: s.unit, // 단위 추가
+            totalCosts: s.quantity * s.costPrice, salesAmount: s.totalSales, margin: s.totalMargin
         });
     });
 
@@ -1973,7 +1989,7 @@ function generateSalesReport() {
         row.innerHTML = `
             <td>${item.date.substring(0, 7)}</td><td>${item.company}</td><td>${item.brand}</td>
             <td>${item.itemCategory}</td><td>${item.product || ''}</td><td>${item.spec || ''}</td>
-            <td>${item.lot || ''}</td><td>${item.quantity.toLocaleString(undefined, {maximumFractionDigits:2})}</td>
+            <td>${item.lot || ''}</td><td>${item.quantity.toLocaleString(undefined, {maximumFractionDigits:2})} ${item.unit || ''}</td>
             <td>${Math.round(item.totalCosts).toLocaleString()}</td>
             <td>${Math.round(item.salesAmount).toLocaleString()}</td>
             <td>${Math.round(item.margin).toLocaleString()}</td><td>${marginRate}%</td>`;
@@ -1985,7 +2001,6 @@ function generateSalesReport() {
     document.getElementById('total-sales-margin').innerText = Math.round(totalMarginSum).toLocaleString();
     document.getElementById('total-sales-margin-rate').innerText = `${totalMarginRate}%`;
 }
-
 
 function toggleAllCheckboxes(className, checked) {
     document.querySelectorAll(`.${className}`).forEach(checkbox => checkbox.checked = checked);

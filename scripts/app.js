@@ -71,6 +71,28 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     }).catch(error => console.error('로그아웃 실패:', error));
 });
 
+/**
+ * 날짜 문자열(YYYY-MM-DD)을 짧은 형식(YY/M/D)으로 변환합니다.
+ * @param {string} dateString (예: "2025-02-03")
+ * @returns {string} (예: "25/2/3")
+ */
+function formatShortDate(dateString) {
+    if (!dateString) return ''; // 날짜가 없으면 빈칸 반환
+    try {
+        const date = new Date(dateString);
+        // getFullYear()는 2025, slice(-2)로 뒤의 2자리(25)만 가져옵니다.
+        const year = date.getFullYear().toString().slice(-2);
+        // getMonth()는 0부터 시작하므로 +1 해줍니다. (예: 1월 -> 0)
+        const month = date.getMonth() + 1;
+        // getDate()는 날짜를 반환합니다.
+        const day = date.getDate();
+        
+        return `${year}/${month}/${day}`;
+    } catch (e) {
+        // 혹시 날짜 형식이 잘못된 경우, 원본을 그대로 반환
+        return dateString;
+    }
+}
 
 // --- loadAllDataFromFirebase 함수 수정 ---
 function loadAllDataFromFirebase() {
@@ -865,10 +887,13 @@ function updateInventoryTable(itemsToDisplay) {
         row.innerHTML = `
             <td>${item.brand}</td> <td>${item.product || 'N/A'}</td> <td>${item.spec || ''}</td>
             <td>${item.lot}</td> <td>${item.quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td>${item.receivedDate || '-'}</td>
+            <td>${formatShortDate(item.receivedDate) || '-'}</td>
             <td><button class="action-btn" onclick="showItemHistoryInTransactionTab('${item.brand}', '${item.product || ''}', '${item.spec || ''}', '${item.lot}')">내역 보기</button></td>`;
-    });
-    document.getElementById('total-inv-weight').innerText = totalWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+   
+     }); 
+
+
+   document.getElementById('total-inv-weight').innerText = totalWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // START: 품목별 재고 요약 함수 추가
@@ -2164,7 +2189,6 @@ window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
 window.ic_deleteSelectedSheets = ic_deleteSelectedSheets;
-
 
 
 

@@ -28,57 +28,7 @@
             <div class="tab" onclick="showTab('backup')">데이터 백업/복원</div>
         </div>
 
-        <div id="dashboard" class="tab-content active">
-            <div class="section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 style="border-bottom: none; margin-bottom: 0;">경영 현황 요약</h3>
-                    <div class="input-field" style="max-width: 150px;">
-                        <label for="dashboard-year-filter" style="font-weight: normal; margin-bottom: 0;">기준 년도:</label>
-                        <select id="dashboard-year-filter"></select>
-                    </div>
-                </div>
-
-                <div class="kpi-container">
-                    <div class="kpi-card kpi-sales">
-                        <div class="kpi-title">총 매출</div>
-                        <div class="kpi-value" id="kpi-total-sales">0 원</div>
-                    </div>
-                    <div class="kpi-card kpi-margin">
-                        <div class="kpi-title">최종 마진</div>
-                        <div class="kpi-value" id="kpi-total-margin">0 원</div>
-                    </div>
-                    <div class="kpi-card kpi-rate">
-                        <div class="kpi-title">마진율</div>
-                        <div class="kpi-value" id="kpi-margin-rate">0.0 %</div>
-                    </div>
-                </div>
-
-                <div class="dashboard-layout">
-                    <div class="section chart-container">
-                        <h4>월별 실적 추이</h4>
-                        <div style="height: 350px;">
-                            <canvas id="monthly-chart"></canvas>
-                        </div>
-                    </div>
-                    <div class="section">
-                        <h4>Top 5 브랜드 (마진 기준)</h4>
-                        <table class="dashboard-table">
-                            <thead><tr><th>순위</th><th>브랜드</th><th>최종 마진(원)</th></tr></thead>
-                            <tbody id="top-brands-tbody"></tbody>
-                        </table>
-                    </div>
-                    <div class="section">
-                        <h4>Top 5 거래처 (마진 기준)</h4>
-                        <table class="dashboard-table">
-                             <thead><tr><th>순위</th><th>거래처</th><th>최종 마진(원)</th></tr></thead>
-                             <tbody id="top-companies-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="transaction" class="tab-content">
+          <div id="transaction" class="tab-content">
             <div class="section">
                 <h3 id="transaction-form-title">입출고 등록</h3>
                 <div class="input-group">
@@ -464,7 +414,56 @@
                 </table>
             </div>
         </div> 
-        
+           <div id="dashboard" class="tab-content active">
+            <div class="section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="border-bottom: none; margin-bottom: 0;">경영 현황 요약</h3>
+                    <div class="input-field" style="max-width: 150px;">
+                        <label for="dashboard-year-filter" style="font-weight: normal; margin-bottom: 0;">기준 년도:</label>
+                        <select id="dashboard-year-filter"></select>
+                    </div>
+                </div>
+
+                <div class="kpi-container">
+                    <div class="kpi-card kpi-sales">
+                        <div class="kpi-title">총 매출</div>
+                        <div class="kpi-value" id="kpi-total-sales">0 원</div>
+                    </div>
+                    <div class="kpi-card kpi-margin">
+                        <div class="kpi-title">최종 마진</div>
+                        <div class="kpi-value" id="kpi-total-margin">0 원</div>
+                    </div>
+                    <div class="kpi-card kpi-rate">
+                        <div class="kpi-title">마진율</div>
+                        <div class="kpi-value" id="kpi-margin-rate">0.0 %</div>
+                    </div>
+                </div>
+
+                <div class="dashboard-layout">
+                    <div class="section chart-container">
+                        <h4>월별 실적 추이</h4>
+                        <div style="height: 350px;">
+                            <canvas id="monthly-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <h4>Top 5 브랜드 (마진 기준)</h4>
+                        <table class="dashboard-table">
+                            <thead><tr><th>순위</th><th>브랜드</th><th>최종 마진(원)</th></tr></thead>
+                            <tbody id="top-brands-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="section">
+                        <h4>Top 5 거래처 (마진 기준)</h4>
+                        <table class="dashboard-table">
+                             <thead><tr><th>순위</th><th>거래처</th><th>최종 마진(원)</th></tr></thead>
+                             <tbody id="top-companies-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="backup" class="tab-content">
             <div class="section">
                 <h3>데이터 백업 및 복원</h3>
@@ -497,4 +496,5 @@
     <script src="scripts/app.js"></script> 
 </body>
 </html>
+
 

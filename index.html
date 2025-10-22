@@ -219,14 +219,22 @@
                         <button class="btn btn-success" onclick="exportSalesCSV()">📊 CSV 내보내기</button>
                     </div>
                 </div>
-                <table class="sales-list-table">
+                               <table class="sales-list-table">
                     <thead>
                         <tr>
                             <th><input type="checkbox" id="select-all-sales" onchange="toggleAllCheckboxes('sales-checkbox', this.checked)"></th>
-                            <th>날짜</th><th>업체</th><th>브랜드</th><th>항목</th><th>제품</th><th>스펙</th><th>수량</th><th>단위</th><th>판가(원)</th><th>원가(원)</th><th>총매출(원)</th><th>총마진(원)</th><th>비고</th>
+                            <th>날짜</th><th>업체</th><th>브랜드</th><th>항목</th><th>제품</th><th>스펙</th><th>수량</th><th>판가(원)</th><th>원가(원)</th><th>총매출(원)</th><th>총마진(원)</th><th>비고</th>
                         </tr>
                     </thead>
                     <tbody id="sales-tbody"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="10" style="text-align: right; font-weight: bold;">총 합계</td>
+                            <td id="total-sales-list-sales" style="text-align: left; font-weight: bold;">0</td>
+                            <td id="total-sales-list-margin" style="text-align: left; font-weight: bold;">0</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div> 
@@ -408,7 +416,7 @@
                     </div>
                 </div>
                 <table class="sales-report-table">
-                    <thead><tr><th>월</th><th>업체</th><th>브랜드</th><th>항목</th><th>제품</th><th>스펙</th><th>LOT</th><th>수량</th><th>매입금액(원)</th><th>매출금액(원)</th><th>최종마진(원)</th><th>마진율(%)</th></tr></thead>
+                    <thead><tr><th>월</th><th>업체</th><th>브랜드</th><th>항목</th><th>제품</th><th>스펙</th><th>LOT</th><th>수량</th><th>총 비용(원)</th><th>매출 금액(원)</th><th>최종 마진(원)</th><th>마진율(%)</th></tr></thead>
                     <tbody id="sales-report-tbody"></tbody>
                      <tfoot><tr><td colspan="8" style="text-align:center;">총 합계</td><td id="total-sales-total-costs" style="text-align:left;"></td><td id="total-sales-amount" style="text-align:left;"></td><td id="total-sales-margin" style="text-align:left;"></td><td id="total-sales-margin-rate" style="text-align:left;"></td></tr></tfoot>
                 </table>
@@ -496,4 +504,3 @@
     <script src="scripts/app.js"></script> 
 </body>
 </html>
-

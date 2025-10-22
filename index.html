@@ -156,7 +156,7 @@
                         <div class="input-field"><label>날짜*</label><input type="date" id="sales-date" required></div>
                         <div class="input-field"><label>업체*</label><input type="text" id="sales-company" list="company-list-tran" placeholder="거래 업체명" required></div>
                         <div class="input-field"><label>브랜드*</label><input type="text" id="sales-brand" list="brand-list" placeholder="브랜드명" required></div>
-                        <div class="input-field"><label>품목*</label>
+                        <div class="input-field"><label>항목*</label>
                             <select id="sales-item-category">
                                 <option value="로열티">로열티</option>
                                 <option value="원단">원단</option>
@@ -204,7 +204,7 @@
                     <input type="month" id="filter-sales-end-month" placeholder="년-월(끝)">
                     <input type="text" id="filter-sales-list-company" placeholder="업체 검색">
                     <input type="text" id="filter-sales-list-brand" placeholder="브랜드 검색">
-                    <input type="text" id="filter-sales-list-item-category" placeholder="품목 검색">
+                    <input type="text" id="filter-sales-list-item-category" placeholder="항목 검색">
                     <input type="text" id="filter-sales-list-product" placeholder="제품 검색">
                     <input type="text" id="filter-sales-list-spec" placeholder="스펙 검색">
                 </div>
@@ -223,7 +223,7 @@
                     <thead>
                         <tr>
                             <th><input type="checkbox" id="select-all-sales" onchange="toggleAllCheckboxes('sales-checkbox', this.checked)"></th>
-                            <th>날짜</th><th>업체</th><th>브랜드</th><th>품목</th><th>제품</th><th>스펙</th><th>수량</th><th>단위</th><th>판가(원)</th><th>원가(원)</th><th>총매출(원)</th><th>총마진(원)</th><th>비고</th>
+                            <th>날짜</th><th>업체</th><th>브랜드</th><th>항목</th><th>제품</th><th>스펙</th><th>수량</th><th>단위</th><th>판가(원)</th><th>원가(원)</th><th>총매출(원)</th><th>총마진(원)</th><th>비고</th>
                         </tr>
                     </thead>
                     <tbody id="sales-tbody"></tbody>
@@ -239,7 +239,7 @@
                          <div class="input-field"><label>날짜*</label><input type="date" id="remit-date" required></div>
                          <div class="input-field"><label>업체*</label><input type="text" id="remit-company" list="company-list-tran" placeholder="거래 업체명" required></div>
                          <div class="input-field"><label>브랜드*</label><input type="text" id="remit-brand" list="brand-list" placeholder="브랜드명" required></div>
-                         <div class="input-field"><label>품목*</label>
+                         <div class="input-field"><label>항목*</label>
                              <select id="remit-item-category">
                                  <option value="로열티">로열티</option>
                                  <option value="원단">원단</option>
@@ -285,7 +285,7 @@
                     <input type="month" id="filter-remit-end-month" placeholder="년-월(끝)">
                     <input type="text" id="filter-remit-company" placeholder="업체 검색">
                     <input type="text" id="filter-remit-brand" placeholder="브랜드 검색">
-                    <input type="text" id="filter-remit-item-category" placeholder="품목 검색">
+                    <input type="text" id="filter-remit-item-category" placeholder="항목 검색">
                     <input type="text" id="filter-remit-product" placeholder="제품 검색">
                     <input type="text" id="filter-remit-spec" placeholder="스펙 검색">
                 </div>
@@ -304,7 +304,7 @@
                     <thead>
                      <tr>
                             <th><input type="checkbox" id="select-all-remittances" onchange="toggleAllCheckboxes('remittance-checkbox', this.checked)"></th>
-                            <th>날짜</th><th>업체</th><th>브랜드</th><th>품목</th><th>제품</th><th>스펙</th><th>수량</th><th>단위</th><th>단가($)</th><th>총합계($)</th><th>비고</th>
+                            <th>날짜</th><th>업체</th><th>브랜드</th><th>항목</th><th>제품</th><th>스펙</th><th>수량</th><th>단위</th><th>단가($)</th><th>총합계($)</th><th>비고</th>
                         </tr>
                     </thead>
                     <tbody id="remittance-tbody"></tbody>
@@ -393,7 +393,7 @@
                     <input type="date" class="date-placeholder" id="filter-report-end-date" placeholder="종료일">
                     <input type="text" id="filter-report-company" placeholder="업체 검색">
                     <input type="text" id="filter-report-brand" placeholder="브랜드 검색">
-                    <input type="text" id="filter-report-item-category" placeholder="품목 검색">
+                    <input type="text" id="filter-report-item-category" placeholder="항목 검색">
                     <input type="text" id="filter-report-product" placeholder="제품 검색">
                     <input type="text" id="filter-report-spec" placeholder="스펙 검색">
                 </div>
@@ -408,7 +408,7 @@
                     </div>
                 </div>
                 <table class="sales-report-table">
-                    <thead><tr><th>월</th><th>업체</th><th>브랜드</th><th>품목</th><th>제품</th><th>스펙</th><th>LOT</th><th>수량</th><th>총 비용(원)</th><th>매출 금액(원)</th><th>최종 마진(원)</th><th>마진율(%)</th></tr></thead>
+                    <thead><tr><th>월</th><th>업체</th><th>브랜드</th><th>항목</th><th>제품</th><th>스펙</th><th>LOT</th><th>수량</th><th>총 비용(원)</th><th>매출 금액(원)</th><th>최종 마진(원)</th><th>마진율(%)</th></tr></thead>
                     <tbody id="sales-report-tbody"></tbody>
                      <tfoot><tr><td colspan="8" style="text-align:center;">총 합계</td><td id="total-sales-total-costs" style="text-align:left;"></td><td id="total-sales-amount" style="text-align:left;"></td><td id="total-sales-margin" style="text-align:left;"></td><td id="total-sales-margin-rate" style="text-align:left;"></td></tr></tfoot>
                 </table>
@@ -496,9 +496,3 @@
     <script src="scripts/app.js"></script> 
 </body>
 </html>
-
-
-
-
-
-

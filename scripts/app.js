@@ -94,6 +94,23 @@ function formatShortDate(dateString) {
     }
 }
 
+/**
+ * 문자열에서 숫자만 추출하여 소수점으로 변환합니다. 쉼표 등을 제거합니다.
+ * @param {string|number} value - 변환할 값
+ * @returns {number} 변환된 숫자 (실패 시 0)
+ */
+function ic_pFloat(value) {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+        // 숫자, 소수점, 마이너스 부호 외 모든 문자 제거
+        const cleaned = value.replace(/[^0-9.-]/g, '');
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? 0 : num;
+    }
+    return 0; // 그 외의 경우 0 반환
+}
+
+
 // --- loadAllDataFromFirebase 함수 수정 ---
 function loadAllDataFromFirebase() {
     console.log("Firestore에서 실시간 데이터 동기화를 시작합니다...");

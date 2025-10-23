@@ -1051,6 +1051,7 @@ function downloadBulkTransactionTemplate() {
     downloadCSV(headers.join(','), '대량입출고_템플릿');
 }
 
+// [수정] '입출고 현황' CSV 처리 함수 수정 (ic_pFloat 적용)
 function processBulkUpload() {
     const file = document.getElementById('bulk-csv-file').files[0];
     if (!file) return alert('파일을 선택해주세요.');
@@ -1063,9 +1064,9 @@ function processBulkUpload() {
                 date: row['날짜(YYYY-MM-DD)*']?.trim() || '',
                 brand: row['브랜드*']?.trim() || '', 
                 lot: row['LOT 번호*']?.trim() || '',
-                weight: parseFloat(row['중량(kg)*']) || 0, 
-                unitPrice: parseFloat(row['단가(원/kg)']) || 0, 
-                otherCosts: parseFloat(row['기타 비용']) || 0, 
+                weight: ic_pFloat(row['중량(kg)*']), // [수정] parseFloat -> ic_pFloat
+                unitPrice: ic_pFloat(row['단가(원/kg)']), // [수정] parseFloat -> ic_pFloat
+                otherCosts: ic_pFloat(row['기타 비용']), // [수정] parseFloat -> ic_pFloat
                 product: row['제품']?.trim() || '',
                 spec: row['스펙 (예: 75/48)']?.trim() || '', 
                 company: row['업체*']?.trim() || '', 
@@ -1380,6 +1381,7 @@ function handleSalesCsvUpload(event) {
     handleCsvUpload(event, 'sales-csv-preview', 'sales-csv-content', (data) => { salesCsvData = data; });
 }
 
+// [수정] '일반 매출' CSV 처리 함수 수정 (ic_pFloat 적용)
 function processSalesCsvUpload() {
     processCsvData(salesCsvData, 'sales-csv-file', (row, index) => {
         const sale = {
@@ -1389,10 +1391,10 @@ function processSalesCsvUpload() {
             itemCategory: row['품목*']?.trim() || '',
             product: row['제품']?.trim() || '',
             spec: row['스펙']?.trim() || '',
-            quantity: Number(row['수량*']) || 0,
+            quantity: ic_pFloat(row['수량*']), // [수정] Number -> ic_pFloat
             unit: row['단위*']?.trim() || 'kg',
-            sellingPrice: Number(row['판가(원)*']) || 0,
-            costPrice: Number(row['원가(원)']) || 0,
+            sellingPrice: ic_pFloat(row['판가(원)*']), // [수정] Number -> ic_pFloat
+            costPrice: ic_pFloat(row['원가(원)']), // [수정] Number -> ic_pFloat
             notes: row['비고']?.trim() || ''
         };
         sale.totalSales = sale.quantity * sale.sellingPrice;
@@ -1534,6 +1536,7 @@ function handleRemittanceCsvUpload(event) {
     handleCsvUpload(event, 'remit-csv-preview', 'remit-csv-content', (data) => { remitCsvData = data; });
 }
 
+// [수정] '해외 송금' CSV 처리 함수 수정 (ic_pFloat 적용)
 function processRemittanceCsvUpload() {
     processCsvData(remitCsvData, 'remit-csv-file', (row, index) => {
         const remit = {
@@ -1543,9 +1546,9 @@ function processRemittanceCsvUpload() {
             itemCategory: row['품목*']?.trim() || '',
             product: row['제품']?.trim() || '',
             spec: row['스펙']?.trim() || '',
-            quantity: Number(row['수량*']) || 0,
+            quantity: ic_pFloat(row['수량*']), // [수정] Number -> ic_pFloat
             unit: row['단위*']?.trim() || 'kg',
-            unitPrice: Number(row['단가($)*']) || 0, // '단가(원)*' -> '단가($)*'
+            unitPrice: ic_pFloat(row['단가($)*']), // [수정] Number -> ic_pFloat
             notes: row['비고']?.trim() || ''
         };
         remit.totalAmount = parseFloat((remit.quantity * remit.unitPrice).toFixed(2)); // 소수점 2자리까지 계산
@@ -2140,7 +2143,151 @@ function ic_downloadBulkTemplate() {
     const headers = ["그룹ID*", "Shipper*", "ETD*(YYYY-MM-DD)", "ETA(YYYY-MM-DD)", "적용환율*", "Terms", "Origin", "Method", "CBM", "포장", "은행 송금수수료(원)", "관세율(%)", "관세(원)", "부가가치세(원)", "현지 내륙 총 비용(원)", "수입 총 비용(원)", "국내 내륙 운송비(원)", "품목*", "LOT*", "수량*", "단위", "단가($)*"];
     downloadCSV(headers.join(',') + '\r\n', '수입정산서_일괄등록_템플릿');
 }
-function ic_processBulkUpload() { /* (기존 대량 업로드 로직 유지) */ }
+
+// [수정] '수입원가 정산' CSV 처리 함수 복원 (기능 구현)
+function ic_processBulkUpload() {
+    const fileInput = document.getElementById('ic_bulk-csv-file');
+    const file = fileInput.files[0];
+    if (!file) return alert('파일을 선택해주세요.');
+
+    const statusEl = document.getElementById('ic_bulk-upload-status');
+    statusEl.innerHTML = 'CSV 파일을 파싱 중입니다...';
+
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+            const rows = results.data;
+            if (!rows || rows.length === 0) {
+                statusEl.innerHTML = '<span style="color: red;">오류: CSV 파일에 데이터가 없습니다.</span>';
+                return;
+            }
+
+            // 1. 그룹ID (groupId)별로 데이터 그룹화
+            const groupedData = new Map();
+            for (const row of rows) {
+                const groupId = row['그룹ID*']?.trim();
+                if (!groupId) {
+                    console.warn('경고: 그룹ID가 없는 행을 건너뜁니다.', row);
+                    continue;
+                }
+                if (!groupedData.has(groupId)) {
+                    groupedData.set(groupId, []);
+                }
+                groupedData.get(groupId).push(row);
+            }
+
+            statusEl.innerHTML = `총 ${rows.length}개 행에서 ${groupedData.size}개의 정산서 그룹을 찾았습니다. Firestore에 등록을 시작합니다...`;
+
+            let successCount = 0;
+            let failCount = 0;
+            const batch = db.batch(); // Firestore 배치 작업
+
+            // 2. 각 그룹을 순회하며 하나의 정산서(sheetData)로 만들기
+            for (const [groupId, groupRows] of groupedData.entries()) {
+                try {
+                    const firstRow = groupRows[0];
+                    
+                    // 3. 기본 정보 파싱 (그룹의 첫 번째 행 기준)
+                    const sheetData = {
+                        shipper: firstRow['Shipper*']?.trim() || '',
+                        etd: firstRow['ETD*(YYYY-MM-DD)']?.trim() || '',
+                        eta: firstRow['ETA(YYYY-MM-DD)']?.trim() || '',
+                        exchangeRate: firstRow['적용환율*']?.trim() || '0',
+                        terms: firstRow['Terms']?.trim() || '',
+                        origin: firstRow['Origin']?.trim() || '',
+                        method: firstRow['Method']?.trim() || '',
+                        cbm: firstRow['CBM']?.trim() || '',
+                        packing: firstRow['포장']?.trim() || '',
+                        shippingFee: firstRow['은행 송금수수료(원)']?.trim() || '0',
+                        tariffRate: firstRow['관세율(%)']?.trim() || '0',
+                        tariffAmount: firstRow['관세(원)']?.trim() || '0',
+                        vatAmount: firstRow['부가가치세(원)']?.trim() || '0',
+                        forwarderFee1: firstRow['현지 내륙 총 비용(원)']?.trim() || '0',
+                        forwarderFee2: firstRow['수입 총 비용(원)']?.trim() || '0',
+                        forwarderFee3: firstRow['국내 내륙 운송비(원)']?.trim() || '0',
+                        items: []
+                    };
+
+                    // 4. 유효성 검사 (기본 정보)
+                    if (!sheetData.shipper || !sheetData.etd || ic_pFloat(sheetData.exchangeRate) === 0) {
+                        console.error(`그룹 [${groupId}] 처리 실패: 필수 항목(Shipper, ETD, 적용환율) 누락.`, firstRow);
+                        failCount++;
+                        continue;
+                    }
+
+                    let totalInvoiceValue = 0;
+
+                    // 5. 품목 정보 파싱 (그룹의 모든 행)
+                    for (const itemRow of groupRows) {
+                        const item = {
+                            name: itemRow['품목*']?.trim() || '',
+                            lot: itemRow['LOT*']?.trim() || '',
+                            qty: ic_pFloat(itemRow['수량*']),
+                            unit: itemRow['단위']?.trim() || 'kg',
+                            price: ic_pFloat(itemRow['단가($)*'])
+                        };
+
+                        // 품목 유효성 검사
+                        if (!item.name || !item.lot || item.qty <= 0 || item.price < 0) {
+                            console.warn(`그룹 [${groupId}] 내 유효하지 않은 품목 행을 건너뜁니다.`, itemRow);
+                            continue; // 이 품목만 건너뜀
+                        }
+                        
+                        sheetData.items.push(item);
+                        totalInvoiceValue += item.qty * item.price;
+                    }
+
+                    // 6. 품목이 하나도 없으면 이 정산서 건너뜀
+                    if (sheetData.items.length === 0) {
+                        console.error(`그룹 [${groupId}] 처리 실패: 유효한 품목이 하나도 없습니다.`);
+                        failCount++;
+                        continue;
+                    }
+
+                    // 7. 최종 수입원가(unitCost) 계산
+                    const exchangeRate = ic_pFloat(sheetData.exchangeRate);
+                    const invoiceKrw = totalInvoiceValue * exchangeRate;
+                    const totalMaterialCost = invoiceKrw + ic_pFloat(sheetData.shippingFee);
+                    const tariffCost = ic_pFloat(sheetData.tariffAmount);
+                    const totalForwarderFee = ic_pFloat(sheetData.forwarderFee1) + ic_pFloat(sheetData.forwarderFee2) + ic_pFloat(sheetData.forwarderFee3);
+                    const grandTotal = totalMaterialCost + tariffCost + totalForwarderFee;
+
+                    sheetData.items.forEach(item => {
+                        item.unitCost = (totalInvoiceValue > 0 && item.qty > 0) ? (grandTotal * ((item.qty * item.price) / totalInvoiceValue)) / item.qty : 0;
+                    });
+
+                    // 8. 배치(Batch)에 추가
+                    const docRef = importCostSheetsCollection.doc();
+                    batch.set(docRef, sheetData);
+                    successCount++;
+
+                } catch (error) {
+                    console.error(`그룹 [${groupId}] 처리 중 예외 발생:`, error, groupRows);
+                    failCount++;
+                }
+            } // end of for loop (groups)
+
+            // 9. 최종 배치 커밋
+            try {
+                await batch.commit();
+                statusEl.innerHTML = `<span style="color: green;">일괄 등록 완료: 총 ${successCount}개 정산서 등록 성공, ${failCount}개 그룹 실패.</span>`;
+                alert(`일괄 등록 완료: 성공 ${successCount}건, 실패 ${failCount}건`);
+                ic_closeBulkUploadModal();
+            } catch (commitError) {
+                console.error("Firestore 배치 커밋 오류:", commitError);
+                statusEl.innerHTML = `<span style="color: red;">오류: Firestore 저장 중 오류 발생. ${commitError.message}</span>`;
+                alert(`Firestore 저장 중 오류가 발생했습니다. (성공 ${successCount}, 실패 ${failCount})`);
+            }
+
+        }, // end of complete
+        error: (error) => {
+            console.error('CSV 파싱 오류:', error);
+            statusEl.innerHTML = `<span style="color: red;">오류: CSV 파일을 읽는 중 오류가 발생했습니다: ${error.message}</span>`;
+            alert(`CSV 파일을 읽는 중 오류가 발생했습니다: ${error.message}`);
+        }
+    }); // end of Papa.parse
+}
 
 // ================== 5. HTML onclick과 함수 연결 ==================
 window.addTransaction = () => processTransaction(false);
@@ -2221,6 +2368,3 @@ window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
 window.ic_deleteSelectedSheets = ic_deleteSelectedSheets;
-
-
-

@@ -228,11 +228,13 @@ async function processTransaction(isEdit) {
         brand: document.getElementById('tran-brand').value.trim(),
         lot: document.getElementById('tran-lot').value.trim(),
         company: document.getElementById('transaction-company').value.trim(),
-        weight: Number(document.getElementById('transaction-weight').value) || 0,
-        unitPrice: Number(document.getElementById('transaction-unit-price').value) || 0,
-        otherCosts: Number(document.getElementById('transaction-other-costs').value) || 0,
+        //숫자 마이너스 단가 인식
+        weight: ic_pFloat(document.getElementById('transaction-weight').value),
+        unitPrice: ic_pFloat(document.getElementById('transaction-unit-price').value),
+        otherCosts: ic_pFloat(document.getElementById('transaction-other-costs').value),
         product: document.getElementById('tran-product').value.trim(),
-        spec: document.getElementById('tran-spec').value.trim(),
+        spec: document.getElementById('tran-spec').value.trim(),      
+        //여기까지
         notes: document.getElementById('transaction-notes').value.trim(),
         destination: document.getElementById('transaction-destination').value.trim(),
         specialNotes: document.getElementById('transaction-special-notes').value.trim()
@@ -382,10 +384,10 @@ async function processSale(isEdit) {
         notes: document.getElementById('sales-notes').value.trim()
     };
 
-    if (!record.date || !record.company || !record.brand || record.quantity <= 0 || record.sellingPrice < 0) {
+if (!record.date || !record.company || !record.brand || record.quantity <= 0) {
         return alert('필수 항목(날짜, 업체, 브랜드, 수량, 판가)을 모두 입력해주세요.');
-    }
-
+}
+    
     try {
         if (isEdit && editingSaleId) {
             await salesCollection.doc(editingSaleId).update(record);
@@ -1400,10 +1402,11 @@ function processSalesCsvUpload() {
         sale.totalSales = sale.quantity * sale.sellingPrice;
         sale.totalMargin = sale.totalSales - (sale.quantity * sale.costPrice);
 
-        if (!sale.date || !sale.company || !sale.brand || !sale.itemCategory || sale.quantity <= 0 || sale.sellingPrice < 0) {
+if (!sale.date || !sale.company || !sale.brand || !sale.itemCategory || sale.quantity <= 0) {
             console.error(`매출 CSV 유효성 검사 실패 (행 ${index + 2}):`, row);
             return null; // 유효하지 않으면 null 반환
         }
+
         return salesCollection.add(sale); // Firestore에 추가하는 Promise 반환
     }, cancelSalesCsvUpload, '매출');
 }

@@ -25,7 +25,6 @@
             <div class="tab" onclick="showTab('new-sales')">일반 매출</div>
             <div class="tab" onclick="showTab('sales-report')">매출 보고서</div>
             <div class="tab" onclick="showTab('dashboard')">대시보드</div>
-            <div class="tab" onclick="showTab('cashflow')">지출 예상자금</div> <!-- [신규] 탭 추가 -->
             <div class="tab" onclick="showTab('backup')">데이터 백업/복원</div>
         </div>
 
@@ -39,15 +38,8 @@
                     <div class="input-field"><label>LOT*</label><input type="text" id="tran-lot" list="lot-list" placeholder="기존 선택 또는 신규 입력" required><datalist id="lot-list"></datalist></div>
                     <div class="input-field"><label>제품</label><input type="text" id="tran-product" placeholder="신규 입고 시 입력"></div>
                     <div class="input-field"><label>스펙</label><input type="text" id="tran-spec" placeholder="신규 입고 시 입력"></div>
-                    <div class="input-field"><label>중량(kg)*</label><input type="number" id="transaction-weight" required oninput="calculateTransactionTotals()"></div>
-                    
-                    <!-- [수정] 단가 -> 판가/원가/총매출/총마진 -->
-                    <div class="input-field"><label>판가(원/kg)</label><input type="number" id="transaction-sales-price" placeholder="매출(출고)시 입력" oninput="calculateTransactionTotals()"></div>
-                    <div class="input-field"><label>원가(원/kg)</label><input type="number" id="transaction-unit-price" placeholder="매입(입고)시 입력" oninput="calculateTransactionTotals()" id="transaction-cost-price"></div> <!-- ID 변경: transaction-cost-price -->
-                    <div class="input-field"><label>총매출(원)</label><input type="number" id="transaction-total-sales" readonly></div>
-                    <div class="input-field"><label>총마진(원)</label><input type="number" id="transaction-total-margin" readonly></div>
-                    <!-- [수정] 끝 -->
-                    
+                    <div class="input-field"><label>중량(kg)*</label><input type="number" id="transaction-weight" required></div>
+                    <div class="input-field"><label>단가(원/kg)</label><input type="number" id="transaction-unit-price" placeholder="선택 사항"></div>
                     <div class="input-field"><label>업체*</label><input type="text" id="transaction-company" list="company-list-tran" placeholder="거래 업체명" required><datalist id="company-list-tran"></datalist></div>
                     <div class="input-field" id="other-costs-field" style="display: none;"><label>기타 비용(원)</label><input type="number" id="transaction-other-costs" placeholder="운송비, 부대비용 등"></div>
                     <div class="input-field"><label>비고</label><input type="text" id="transaction-notes"></div>
@@ -81,29 +73,22 @@
                         <button class="btn btn-success" onclick="exportTransactionCSV()">📊 CSV 내보내기</button>
                     </div>
                 </div>
-                               <table class="transaction-table">
+                <table class="transaction-table">
                     <thead>
                         <tr>
                              <th><input type="checkbox" id="select-all-transactions" onchange="toggleAllCheckboxes('transaction-checkbox', this.checked)"></th>
-                            <th>구분</th><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th>
-                            <th>중량(kg)</th>
-                            <th>판가(원/kg)</th> <!-- [신규] -->
-                            <th>원가(원/kg)</th> <!-- [수정] 단가 -> 원가 -->
-                            <th>총매출(원)</th> <!-- [신규] -->
-                            <th>총마진(원)</th> <!-- [신규] -->
-                            <th>업체</th><th>비고</th><th>도착지</th><th>특이사항</th>
+                            <th>구분</th><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>중량(kg)</th><th>단가(원/kg)</th><th>금액(원)</th><th>업체</th><th>비고</th><th>도착지</th><th>특이사항</th>
                         </tr>
                     </thead>
                     <tbody id="transaction-tbody"></tbody>
                    <tfoot>
                         <tr>
-                             <td colspan="7" style="text-align:center;">합계</td>
+                            <td colspan="7" style="text-align:center;">합계</td>
                             <td id="total-tran-weight" style="text-align:left;"></td>
-                            <td></td> <!-- 판가 -->
-                            <td></td> <!-- 원가 -->
-                            <td id="total-tran-amount" style="text-align:left;"></td> <!-- 총매출 -->
-                            <td id="total-tran-margin" style="text-align:left;"></td> <!-- 총마진 -->
-                            <td colspan="4"></td>
+                            <td></td>
+                            <td id="total-tran-amount" style="text-align:left;"></td>
+                            
+                            <td colspan="3"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -194,8 +179,8 @@
                         </div>
                         <div class="input-field"><label>판가(원)*</label><input type="number" id="sales-selling-price" required oninput="calculateSales()"></div>
                         <div class="input-field"><label>원가(원)</label><input type="number" id="sales-cost-price" oninput="calculateSales()"></div>
-                        <div class="input-field"><label>총매출(원)</label><input type="number" id="sales-total-sales" readonly style="background-color: #eee;"></div>
-                        <div class="input-field"><label>총마진(원)</label><input type="number" id="sales-total-margin" readonly style="background-color: #eee;"></div>
+                        <div class="input-field"><label>총매출(원)</label><input type="number" id="sales-total-sales" readonly></div>
+                        <div class="input-field"><label>총마진(원)</label><input type="number" id="sales-total-margin" readonly></div>
                         <div class="input-field"><label>비고</label><input type="text" id="sales-notes"></div>
                     </div>
                 </form>
@@ -284,7 +269,7 @@
                              </select>
                          </div>
                          <div class="input-field"><label>단가($)*</label><input type="number" id="remit-unit-price" required oninput="calculateRemittance()"></div>
-                         <div class="input-field"><label>총합계($)</label><input type="number" id="remit-total-amount" readonly style="background-color: #eee;"></div>
+                         <div class="input-field"><label>총합계($)</label><input type="number" id="remit-total-amount" readonly></div>
                          <div class="input-field"><label>비고</label><input type="text" id="remit-notes"></div>
                      </div>
                 </form>
@@ -503,67 +488,10 @@
                 <div id="backup-status" style="margin-top: 20px; font-weight: bold;"></div>
             </div>
         </div> 
-
-
-<!-- [신규] 지출 예상자금 탭 컨텐츠 -->
-        <div id="cashflow" class="tab-content cashflow-layout">
-            <div class="section">
-                <h3>월별 매출 현황 (출고/매출 기준)</h3>
-                <div id="monthly-sales-summary" class="cashflow-summary">
-                    <!-- JS로 내용이 채워집니다 -->
-                </div>
-            </div>
-            <div class="section">
-                <h3 id="expense-form-title">지출 예상자금 등록</h3>
-                <form id="expense-form" onsubmit="return false;">
-                    <div class="input-group">
-                        <div class="input-field"><label>예상월*</label><input type="month" id="expense-month" required></div>
-                        <div class="input-field"><label>항목*</label><input type="text" id="expense-item" placeholder="예: 급여, 임대료, 원자재 매입 등" required></div>
-                        <div class="input-field"><label>예상금액(원)*</label><input type="number" id="expense-amount" required></div>
-                        <div class="input-field"><label>비고</label><input type="text" id="expense-notes"></div>
-                    </div>
-                </form>
-                <div class="btn-group" id="expense-form-buttons">
-                    <button class="btn btn-primary" onclick="addExpense()">➕ 등록</button>
-                </div>
-                
-                <h3 style="margin-top: 30px;">지출 예상 내역</h3>
-                <div class="filter-group">
-                     <input type="month" id="filter-expense-month" placeholder="조회 월">
-                     <button class="btn btn-secondary" onclick="resetExpenseFilters()">필터 초기화</button>
-                </div>
-                <table class="expense-table"> <!-- [신규] 스타일 클래스 -->
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="select-all-expenses" onchange="toggleAllCheckboxes('expense-checkbox', this.checked)"></th>
-                            <th>예상월</th><th>항목</th><th>예상금액(원)</th><th>비고</th>
-                        </tr>
-                    </thead>
-                    <tbody id="expense-tbody"></tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="3" style="text-align: right; font-weight: bold;">조회된 합계</td>
-                            <td id="total-expense-amount" style="text-align: right; padding-right: 10px;">0 원</td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
-                <div class="btn-group" style="margin-top: 15px;">
-                    <button class="btn btn-warning" onclick="editSelectedExpense()">✏️ 선택 수정</button>
-                    <button class="btn btn-danger" onclick="deleteSelectedExpenses()">🗑️ 선택 삭제</button>
-                </div>
-            </div>
-        </div>
-        <!-- [신규] 탭 컨텐츠 끝 -->
-
     </div> 
     
-        <div id="bulkUploadModal" class="modal">
-        <div class="modal-content"><span class="close-button" onclick="closeBulkUploadModal()">&times;</span><h2>대량 입출고 등록</h2><div class="modal-body">
-            <!-- [수정] CSV 안내 문구 -->
-            <p>대량 입출고를 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.<br><b>*필수:</b> 거래구분, 날짜, 브랜드, LOT, 중량, 업체<br><b>*권장:</b> 판가(원/kg), 원가(원/kg) (총매출/마진은 자동 계산됩니다)</p>
-            <div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;"><button class="btn btn-info" onclick="downloadBulkTransactionTemplate()">템플릿 다운로드</button></div>
-            <form id="bulk-upload-form"><label for="bulk-csv-file">CSV 파일 선택:</label><input type="file" id="bulk-csv-file" accept=".csv"><div class="btn-group" style="justify-content: flex-end;"><button type="button" class="btn btn-primary" onclick="processBulkUpload()">대량 입출고 처리</button><button type="button" class="btn btn-secondary" onclick="closeBulkUploadModal()">닫기</button></div></form><div id="bulk-upload-status"></div></div></div>
+    <div id="bulkUploadModal" class="modal">
+        <div class="modal-content"><span class="close-button" onclick="closeBulkUploadModal()">&times;</span><h2>대량 입출고 등록</h2><div class="modal-body"><p>대량 입출고를 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.</p><div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;"><button class="btn btn-info" onclick="downloadBulkTransactionTemplate()">템플릿 다운로드</button></div><form id="bulk-upload-form"><label for="bulk-csv-file">CSV 파일 선택:</label><input type="file" id="bulk-csv-file" accept=".csv"><div class="btn-group" style="justify-content: flex-end;"><button type="button" class="btn btn-primary" onclick="processBulkUpload()">대량 입출고 처리</button><button type="button" class="btn btn-secondary" onclick="closeBulkUploadModal()">닫기</button></div></form><div id="bulk-upload-status"></div></div></div>
     </div>
     <div id="ic_bulkUploadModal" class="modal">
         <div class="modal-content"><span class="close-button" onclick="ic_closeBulkUploadModal()">&times;</span><h2>수입 정산서 대량 등록</h2><div class="modal-body"><p>일괄 등록을 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.<br><b>*중요:</b> 동일한 정산서에 속한 품목들은 '그룹ID'를 반드시 동일하게 입력해야 합니다.</p><div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;"><button class="btn btn-info" onclick="ic_downloadBulkTemplate()">템플릿 다운로드</button></div><form id="ic_bulk-upload-form"><label for="ic_bulk-csv-file">CSV 파일 선택:</label><input type="file" id="ic_bulk-csv-file" accept=".csv"><div class="btn-group" style="justify-content: flex-end;"><button type="button" class="btn btn-primary" id="ic_bulk-upload-process-btn" onclick="ic_processBulkUpload()" disabled>일괄 등록 처리</button><button type="button" class="btn btn-secondary" onclick="ic_closeBulkUploadModal()">닫기</button></div></form><div id="ic_bulk-upload-status"></div></div></div>

@@ -285,6 +285,62 @@ tfoot td { text-align: right; }
 .chart-container {
     grid-column: 1 / 2;
 }
+
+/* [신규] 지출 예상자금 탭 스타일 */
+.cashflow-layout.active {
+    display: grid;
+    grid-template-columns: 1fr 2fr; /* 1:2 비율 */
+    gap: 20px;
+}
+
+.cashflow-summary {
+    max-height: 80vh; /* 높이 제한 및 스크롤 */
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 8px;
+}
+
+.monthly-sales-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+}
+.monthly-sales-item:nth-child(even) {
+    background-color: #f9f9f9;
+}
+.monthly-sales-item:last-child {
+    border-bottom: none;
+}
+.monthly-sales-month {
+    font-weight: bold;
+    color: var(--primary-color);
+    font-size: 15px;
+}
+.monthly-sales-amount {
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.expense-table th, .expense-table td {
+    padding: 10px;
+    font-size: 13px;
+}
+.expense-table tfoot td {
+    font-weight: bold;
+}
+
+/* 1000px 이하 반응형 */
+@media (max-width: 1000px) {
+    .cashflow-layout.active {
+        grid-template-columns: 1fr; /* 세로로 쌓기 */
+    }
+    .cashflow-summary {
+        max-height: 300px; /* 모바일에서 높이 줄임 */
+    }
+}
+
+
 /* 대시보드 Top 5 테이블 */
 .dashboard-table th {
     font-size: 13px;

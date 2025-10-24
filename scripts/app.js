@@ -1,7 +1,7 @@
 // ************* 중요!! *************
 // Firebase 콘솔에서 확인한 내 프로젝트의 설정 정보를 여기에 붙여넣으세요.
 const firebaseConfig = {
-  apiKey: "AIzaSyDA0BNmhnr37KqyI7oj766TwB8FrejsRzo",
+  apiKey: "AIzaSyBWxIrnOySRcmdjp8c6DAJmtjsrBmUbP4Q",
   authDomain: "my-inventory-final.firebaseapp.com",
   projectId: "my-inventory-final",
   storageBucket: "my-inventory-final.firebasestorage.app",
@@ -22,7 +22,6 @@ const transactionsCollection = db.collection('transactions');
 const importCostSheetsCollection = db.collection('importCostSheets');
 const salesCollection = db.collection('sales');
 const remittancesCollection = db.collection('remittances');
-const projectedExpensesCollection = db.collection('projectedExpenses'); // [신규] 지출 예상
 
 // 전역 변수
 let inventory = [];
@@ -34,8 +33,6 @@ let editingTransactionId = null;
 let editingSaleId = null;
 let editingRemittanceId = null;
 let ic_editingId = null;
-let projectedExpenses = []; // [신규]
-let editingExpenseId = null; // [신규]
 // START: CSV 전역 변수 추가
 let salesCsvData = null; // 매출 CSV 데이터 저장용
 let remitCsvData = null; // 해외송금 CSV 데이터 저장용
@@ -155,15 +152,6 @@ function loadAllDataFromFirebase() {
         applyRemittanceFiltersAndRender();
     }, error => console.error("해외송금 내역 실시간 동기화 오류:", error));
 
-// [신규] 지출 예상 내역 리스너
-    projectedExpensesCollection.onSnapshot(snapshot => {
-        projectedExpenses = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        console.log(`지출 예상 데이터 실시간 업데이트됨. 총 ${projectedExpenses.length}건`);
-        if (document.getElementById('cashflow').classList.contains('active')) {
-             applyExpenseFiltersAndRender(); // 현재 탭일 때만 렌더링
-        }
-    }, error => console.error("지출 예상 내역 실시간 동기화 오류:", error));
-
     initializeAppUI();
 }
 
@@ -215,16 +203,6 @@ function bindEventListeners() {
     ['filter-remit-start-month', 'filter-remit-end-month', 'filter-remit-company', 'filter-remit-brand', 'filter-remit-item-category', 'filter-remit-product', 'filter-remit-spec']
     .forEach(id => document.getElementById(id)?.addEventListener('input', applyRemittanceFiltersAndRender));
 
-// [신규] 입출고 폼 자동계산 리스너
-    ['transaction-weight', 'transaction-sales-price', 'transaction-cost-price'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('input', calculateTransactionTotals);
-    });
-
-    // [신규] 지출 예상 필터 리스너
-    document.getElementById('filter-expense-month')?.addEventListener('input', applyExpenseFiltersAndRender);
-
-
     // [추가] 대시보드 년도 필터 이벤트 리스너
     document.getElementById('dashboard-year-filter')?.addEventListener('change', updateDashboard);
 
@@ -244,7 +222,6 @@ if (remitCsvEl) remitCsvEl.addEventListener('change', handleRemittanceCsvUpload)
 
 // --- 2.1 입출고 (Transaction) ---
 async function processTransaction(isEdit) {
-  // [수정] calculateTransactionTotals()로 자동계산된 값 포함
     const record = {
         type: document.getElementById('transaction-type').value,
         date: document.getElementById('transaction-date').value,
@@ -253,14 +230,7 @@ async function processTransaction(isEdit) {
         company: document.getElementById('transaction-company').value.trim(),
         //숫자 마이너스 단가 인식
         weight: ic_pFloat(document.getElementById('transaction-weight').value),
-
-       // [수정] 판가/원가/총매출/총마진
-        salesPrice: ic_pFloat(document.getElementById('transaction-sales-price').value),
-        costPrice: ic_pFloat(document.getElementById('transaction-cost-price').value), // ID 변경됨
-        totalSales: ic_pFloat(document.getElementById('transaction-total-sales').value),
-        totalMargin: ic_pFloat(document.getElementById('transaction-total-margin').value),
-        // [수정] 끝
-
+        unitPrice: ic_pFloat(document.getElementById('transaction-unit-price').value),
         otherCosts: ic_pFloat(document.getElementById('transaction-other-costs').value),
         product: document.getElementById('tran-product').value.trim(),
         spec: document.getElementById('tran-spec').value.trim(),      
@@ -288,29 +258,6 @@ async function processTransaction(isEdit) {
         alert(`데이터를 처리하는 중 오류가 발생했습니다: ${error.message}`);
     }
 }
-
-
-// [신규] 입출고 폼 자동계산 함수
-function calculateTransactionTotals() {
-    const quantity = Number(document.getElementById('transaction-weight').value) || 0;
-    const sellingPrice = Number(document.getElementById('transaction-sales-price').value) || 0;
-    const costPrice = Number(document.getElementById('transaction-cost-price').value) || 0;
-    
-    // 출고일 때만 총매출/총마진 계산 (입고는 매입이므로)
-    const type = document.getElementById('transaction-type').value;
-    if (type === '출고') {
-        const totalSales = quantity * sellingPrice;
-        const totalMargin = (sellingPrice - costPrice) * quantity;
-        document.getElementById('transaction-total-sales').value = totalSales;
-        document.getElementById('transaction-total-margin').value = totalMargin;
-    } else {
-        // 입고일 때는 0으로 초기화
-        document.getElementById('transaction-total-sales').value = 0;
-        document.getElementById('transaction-total-margin').value = 0;
-    }
-}
-
-
 
 async function processBulkTransactions(records) {
     const batch = db.batch();
@@ -659,12 +606,9 @@ function showTab(tabName) {
     ic_clearForm();
 
     // 탭별 특수 처리
-   if (tabName === 'sales-report') generateSalesReport();
+    if (tabName === 'sales-report') generateSalesReport();
     if (tabName === 'dashboard') updateDashboard(); // [추가]
-    if (tabName === 'cashflow') { // [신규]
-        calculateMonthlySalesSummary();
-        applyExpenseFiltersAndRender();
-    }
+
 
     // 거래명세표/청구서 탭이 아닐 경우 관련 영역 숨기기
     if (tabName !== 'invoice') {
@@ -673,11 +617,6 @@ function showTab(tabName) {
          if(invoiceWrapper) invoiceWrapper.style.display = 'none';
          if(billWrapper) billWrapper.style.display = 'none';
     }
-
-
-
-
-
     // 'invoice' 탭일 경우, generateInvoice/generateBill 함수가 display를 'block'으로 설정합니다.
 }
 
@@ -1020,41 +959,31 @@ function showItemHistoryInTransactionTab(brand, product, spec, lot) {
 function updateTransactionTable(transactionsToDisplay) {
     const tbody = document.getElementById('transaction-tbody');
     tbody.innerHTML = '';
-    let totalWeight = 0, totalAmount = 0, totalMarginSum = 0; // [수정] totalMarginSum 추가
+    let totalWeight = 0, totalAmount = 0;
 
     transactionsToDisplay.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
         const weight = parseFloat(t.weight) || 0;
-        // [수정] 판가/원가/총매출/총마진
-        const costPrice = parseFloat(t.costPrice) || 0;
-        const salesPrice = parseFloat(t.salesPrice) || 0;
-        
-        // 데이터 저장 방식 변경으로 t.totalSales, t.totalMargin 직접 사용
-        const totalSales = parseFloat(t.totalSales) || 0;
-        const totalMargin = parseFloat(t.totalMargin) || 0;
+        const unitPrice = parseFloat(t.unitPrice) || 0;
+        const amount = weight * unitPrice;
         
         if(t.type === '입고') totalWeight += weight; else totalWeight -= weight;
-        // totalAmount += amount; // [삭제]
-        totalAmount += totalSales; // [수정] 총매출 합계
-        totalMarginSum += totalMargin; // [신규] 총마진 합계
+        totalAmount += amount;
        
+        const row = tbody.insertRow();
         row.innerHTML = `
             <td><input type="checkbox" class="transaction-checkbox" value="${t.id}"></td>
             <td>${t.type}</td><td>${t.date}</td><td>${t.brand || ''}</td>
             <td>${t.product || ''}</td><td>${t.spec || ''}</td><td>${t.lot || ''}</td>
             <td>${weight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td>${salesPrice.toLocaleString('en-US')}</td> <!-- [신규] 판가 -->
-            <td>${costPrice.toLocaleString('en-US')}</td> <!-- [수정] 원가 -->
-            <td>${Math.round(totalSales).toLocaleString('en-US')}</td> <!-- [신규] 총매출 -->
-            <td>${Math.round(totalMargin).toLocaleString('en-US')}</td> <!-- [신규] 총마진 -->
+            <td>${unitPrice.toLocaleString('en-US')}</td>
+            <td>${amount.toLocaleString('en-US')}</td>
             <td>${t.company}</td><td>${t.notes || ''}</td><td>${t.destination || ''}</td><td>${t.specialNotes || ''}</td>`;
     });
 
     document.getElementById('total-tran-weight').innerText = totalWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    document.getElementById('total-tran-amount').innerText = Math.round(totalAmount).toLocaleString('en-US'); // 총매출 합계
-    document.getElementById('total-tran-margin').innerText = Math.round(totalMarginSum).toLocaleString('en-US'); // [신규] 총마진 합계
+    document.getElementById('total-tran-amount').innerText = totalAmount.toLocaleString('en-US');
     document.getElementById('select-all-transactions').checked = false;
 }
-
 
 function editSelectedTransaction() {
     const selectedIds = Array.from(document.querySelectorAll('.transaction-checkbox:checked')).map(cb => cb.value);
@@ -1071,20 +1000,14 @@ function editSelectedTransaction() {
     document.getElementById('tran-product').value = transaction.product || '';
     document.getElementById('tran-spec').value = transaction.spec || '';
     document.getElementById('transaction-weight').value = transaction.weight;
-    // [수정] 판가/원가/총매출/총마진
-    document.getElementById('transaction-sales-price').value = transaction.salesPrice || '';
-    document.getElementById('transaction-cost-price').value = transaction.costPrice || ''; // ID 변경됨
-    document.getElementById('transaction-total-sales').value = transaction.totalSales || '';
-    document.getElementById('transaction-total-margin').value = transaction.totalMargin || '';
-    // [수정] 끝
+    document.getElementById('transaction-unit-price').value = transaction.unitPrice || '';
     document.getElementById('transaction-company').value = transaction.company;
     document.getElementById('transaction-notes').value = transaction.notes || '';
     document.getElementById('transaction-destination').value = transaction.destination || '';
     document.getElementById('transaction-special-notes').value = transaction.specialNotes || '';
-   document.getElementById('transaction-other-costs').value = transaction.otherCosts || '';
+    document.getElementById('transaction-other-costs').value = transaction.otherCosts || '';
     
     toggleOtherCostsField();
-    calculateTransactionTotals(); // [신규] 불러온 값으로 자동계산 필드 채우기
     document.getElementById('transaction-form-title').innerText = '입출고 수정';
     document.getElementById('transaction-form-buttons').innerHTML = `
         <button class="btn btn-success" onclick="processTransaction(true)">수정 저장</button>
@@ -1107,7 +1030,6 @@ function cancelTransactionEdit() {
         <button class="btn btn-primary" onclick="addTransaction()">입출고 등록</button>
         <button class="btn btn-warning" onclick="openBulkUploadModal()">대량 입출고 등록</button>`;
     toggleOtherCostsField();
-    calculateTransactionTotals(); // [신규] 폼 리셋 시 자동계산 필드 초기화
 }
 
 function autoFillItemDetails() {
@@ -1120,19 +1042,16 @@ function autoFillItemDetails() {
     if (recent) {
         document.getElementById('tran-product').value = recent.product || '';
         document.getElementById('tran-spec').value = recent.spec || '';
-        if (recent.costPrice > 0) document.getElementById('transaction-cost-price').value = recent.costPrice; // [수정] unitPrice -> costPrice
-        if (recent.salesPrice > 0) document.getElementById('transaction-sales-price').value = recent.salesPrice; // [신규]
+        if (recent.unitPrice > 0) document.getElementById('transaction-unit-price').value = recent.unitPrice;
     }
 }
 
 function openBulkUploadModal() { document.getElementById('bulkUploadModal').style.display = 'flex'; }
 function closeBulkUploadModal() { document.getElementById('bulkUploadModal').style.display = 'none'; }
 function downloadBulkTransactionTemplate() {
-    // [수정] CSV 템플릿 헤더 변경
-    const headers = ['거래구분(입고/출고)', '날짜(YYYY-MM-DD)*', '브랜드*', 'LOT 번호*', '중량(kg)*', '판가(원/kg)', '원가(원/kg)', '기타 비용', '제품', '스펙 (예: 75/48)', '업체*', '비고', '도착지', '특이사항'];
+    const headers = ['거래구분(입고/출고)', '날짜(YYYY-MM-DD)*', '브랜드*', 'LOT 번호*', '중량(kg)*', '단가(원/kg)', '기타 비용', '제품', '스펙 (예: 75/48)', '업체*', '비고', '도착지', '특이사항'];
     downloadCSV(headers.join(','), '대량입출고_템플릿');
 }
-
 
 // [수정] '입출고 현황' CSV 처리 함수 수정 (ic_pFloat 적용)
 function processBulkUpload() {
@@ -1142,37 +1061,20 @@ function processBulkUpload() {
     Papa.parse(file, {
         header: true, skipEmptyLines: true,
         complete: (results) => {
-            const records = results.data.map(row => {
-                const type = row['거래구분(입고/출고)']?.trim() || '입고';
-                const weight = ic_pFloat(row['중량(kg)*']);
-                const salesPrice = ic_pFloat(row['판가(원/kg)']);
-                const costPrice = ic_pFloat(row['원가(원/kg)']);
-                
-                let totalSales = 0;
-                let totalMargin = 0;
-                
-                if (type === '출고') {
-                    totalSales = weight * salesPrice;
-                    totalMargin = (salesPrice - costPrice) * weight;
-                }
-
-                return {
-                    type: type, 
-                    date: row['날짜(YYYY-MM-DD)*']?.trim() || '',
-                    brand: row['브랜드*']?.trim() || '', 
-                    lot: row['LOT 번호*']?.trim() || '',
-                    weight: weight,
-                    salesPrice: salesPrice, // [신규]
-                    costPrice: costPrice,   // [수정]
-                    totalSales: totalSales,   // [신규]
-                    totalMargin: totalMargin, // [신규]
-                    otherCosts: ic_pFloat(row['기타 비용']), 
-                    product: row['제품']?.trim() || '',
-                    spec: row['스펙 (예: 75/48)']?.trim() || '', 
-                   company: row['업체*']?.trim() || '', 
-                   notes: row['비고']?.trim() || '', 
-                   destination: row['도착지']?.trim() || '', 
-                   specialNotes: row['특이사항']?.trim() || ''
+            const records = results.data.map(row => ({
+                type: row['거래구분(입고/출고)']?.trim() || '입고', 
+                date: row['날짜(YYYY-MM-DD)*']?.trim() || '',
+                brand: row['브랜드*']?.trim() || '', 
+                lot: row['LOT 번호*']?.trim() || '',
+                weight: ic_pFloat(row['중량(kg)*']), // [수정] parseFloat -> ic_pFloat
+                unitPrice: ic_pFloat(row['단가(원/kg)']), // [수정] parseFloat -> ic_pFloat
+                otherCosts: ic_pFloat(row['기타 비용']), // [수정] parseFloat -> ic_pFloat
+                product: row['제품']?.trim() || '',
+                spec: row['스펙 (예: 75/48)']?.trim() || '', 
+                company: row['업체*']?.trim() || '', 
+                notes: row['비고']?.trim() || '', 
+                destination: row['도착지']?.trim() || '', 
+                specialNotes: row['특이사항']?.trim() || ''
             }));
             processBulkTransactions(records);
         }
@@ -2071,13 +1973,13 @@ function generateSalesReport() {
     let reportData = [];
 
     outgoingTransactions.forEach(t => {
-        // [수정] 입출고 데이터에서 직접 마진 정보 읽기
-        const costPrice = t.costPrice || 0;
-        const salesAmount = t.totalSales || (t.weight * (t.salesPrice || 0)); // 구 데이터 호환
+        const matchingInbound = transactions.filter(it => it.type === '입고' && it.brand === t.brand && it.lot === t.lot).sort((a,b) => new Date(b.date) - new Date(a.date));
+        const costPrice = matchingInbound.length > 0 ? matchingInbound[0].unitPrice : 0;
+        const salesAmount = t.weight * t.unitPrice;
         const costOfGoods = t.weight * costPrice;
-        const totalCosts = costOfGoods; // OtherCosts는 마진 계산에 포함되지 않음 (기존 로직 유지)
-        const margin = t.totalMargin || (salesAmount - totalCosts); // 구 데이터 호환
-
+        const totalCosts = costOfGoods;
+        const margin = salesAmount - totalCosts;
+        
         reportData.push({
             date: t.date, company: t.company, brand: t.brand,
             itemCategory: '원자재', // '항목' 컬럼에 들어갈 값
@@ -2087,13 +1989,12 @@ function generateSalesReport() {
         });
     });
 
-   salesData.forEach(s => {
+    salesData.forEach(s => {
         reportData.push({
             date: s.date, company: s.company, brand: s.brand,
             itemCategory: s.itemCategory, product: s.product, spec: s.spec, lot: '',
             quantity: s.quantity, unit: s.unit, // 단위 추가
-            totalCosts: (s.totalSales - s.totalMargin), // [수정] 원가 * 수량 대신 총매출 - 총마진
-            salesAmount: s.totalSales, margin: s.totalMargin
+            totalCosts: s.quantity * s.costPrice, salesAmount: s.totalSales, margin: s.totalMargin
         });
     });
 
@@ -2127,162 +2028,6 @@ function generateSalesReport() {
 function toggleAllCheckboxes(className, checked) {
     document.querySelectorAll(`.${className}`).forEach(checkbox => checkbox.checked = checked);
 }
-
-// [신규] 4-5. 지출 예상자금 탭 관련 함수
-// ==================================================
-
-function calculateMonthlySalesSummary() {
-    const monthlySales = {};
-    const currentYear = new Date().getFullYear();
-    
-    // 현년도 12개월 초기화
-    for (let i = 0; i < 12; i++) {
-        const monthKey = `${currentYear}-${(i + 1).toString().padStart(2, '0')}`;
-        monthlySales[monthKey] = 0;
-    }
-
-    // 1. '출고' 거래 데이터 처리
-    transactions.forEach(t => {
-        if (t.type === '출고') {
-            const monthKey = t.date.substring(0, 7);
-            const salesAmount = t.totalSales || (t.weight * (t.salesPrice || 0)); // 구 데이터 호환
-            monthlySales[monthKey] = (monthlySales[monthKey] || 0) + salesAmount;
-        }
-    });
-
-    // 2. '일반 매출' 데이터 처리
-    sales.forEach(s => {
-        const monthKey = s.date.substring(0, 7);
-        monthlySales[monthKey] = (monthlySales[monthKey] || 0) + s.totalSales;
-    });
-
-    const summaryDiv = document.getElementById('monthly-sales-summary');
-    summaryDiv.innerHTML = '';
-    
-    // 월(key) 기준으로 역순 정렬
-    Object.keys(monthlySales).sort().reverse().forEach(monthKey => {
-        const amount = monthlySales[monthKey];
-        // 현년도이거나, 과거 데이터 중 매출이 0보다 큰 경우에만 표시
-        if (amount > 0 || monthKey.startsWith(currentYear.toString())) {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'monthly-sales-item'; // CSS 스타일용
-            itemDiv.innerHTML = `
-                <span class="monthly-sales-month">${monthKey}</span>
-                <span class="monthly-sales-amount">${Math.round(amount).toLocaleString()} 원</span>
-            `;
-            summaryDiv.appendChild(itemDiv);
-        }
-    });
-}
-
-async function addExpense() {
-    const record = {
-        month: document.getElementById('expense-month').value,
-        item: document.getElementById('expense-item').value.trim(),
-        amount: Number(document.getElementById('expense-amount').value) || 0,
-        notes: document.getElementById('expense-notes').value.trim()
-    };
-
-    if (!record.month || !record.item || record.amount <= 0) {
-        return alert('필수 항목(예상월, 항목, 예상금액)을 모두 입력해주세요.');
-    }
-    
-    try {
-        if (editingExpenseId) {
-            await projectedExpensesCollection.doc(editingExpenseId).update(record);
-            alert('지출 예상이 수정되었습니다.');
-        } else {
-            await projectedExpensesCollection.add(record);
-            alert('지출 예상이 등록되었습니다.');
-        }
-        cancelExpenseEdit();
-    } catch (error) {
-        console.error("지출 예상 저장 오류:", error);
-        alert(`데이터 저장 중 오류 발생: ${error.message}`);
-    }
-}
-
-function applyExpenseFiltersAndRender() {
-    const filterMonth = document.getElementById('filter-expense-month').value;
-    const filteredExpenses = projectedExpenses.filter(e => {
-        return (!filterMonth || e.month === filterMonth);
-    });
-    updateExpenseTable(filteredExpenses);
-}
-
-function updateExpenseTable(expensesToDisplay) {
-    const tbody = document.getElementById('expense-tbody');
-    tbody.innerHTML = '';
-    let totalAmount = 0;
-    
-    expensesToDisplay.sort((a, b) => a.month.localeCompare(b.month) || a.item.localeCompare(b.item)).forEach(e => {
-        totalAmount += e.amount;
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td><input type="checkbox" class="expense-checkbox" value="${e.id}"></td>
-            <td>${e.month}</td>
-            <td>${e.item}</td>
-            <td style="text-align: right; padding-right: 10px;">${e.amount.toLocaleString()}</td>
-            <td>${e.notes || ''}</td>
-        `;
-    });
-    
-    document.getElementById('total-expense-amount').innerText = totalAmount.toLocaleString() + ' 원';
-    document.getElementById('select-all-expenses').checked = false;
-}
-
-function editSelectedExpense() {
-    const selectedIds = Array.from(document.querySelectorAll('.expense-checkbox:checked')).map(cb => cb.value);
-    if (selectedIds.length !== 1) return alert('수정할 항목을 하나만 선택하세요.');
-    
-    const expense = projectedExpenses.find(e => e.id === selectedIds[0]);
-    if (!expense) return alert("오류: 데이터를 찾을 수 없습니다.");
-    
-    editingExpenseId = expense.id;
-    document.getElementById('expense-month').value = expense.month;
-    document.getElementById('expense-item').value = expense.item;
-    document.getElementById('expense-amount').value = expense.amount;
-    document.getElementById('expense-notes').value = expense.notes || '';
-    
-    document.getElementById('expense-form-title').innerText = '지출 예상 수정';
-    document.getElementById('expense-form-buttons').innerHTML = `
-        <button class="btn btn-success" onclick="addExpense()">수정 저장</button>
-        <button class="btn btn-secondary" onclick="cancelExpenseEdit()">취소</button>`;
-    window.scrollTo(0, document.getElementById('cashflow').scrollTop); // 탭 상단으로 스크롤
-}
-
-function cancelExpenseEdit() {
-    editingExpenseId = null;
-    document.getElementById('expense-form').reset();
-    document.getElementById('expense-form-title').innerText = '지출 예상자금 등록';
-    document.getElementById('expense-form-buttons').innerHTML = `
-        <button class="btn btn-primary" onclick="addExpense()">➕ 등록</button>`;
-}
-
-async function deleteSelectedExpenses() {
-    const selectedIds = Array.from(document.querySelectorAll('.expense-checkbox:checked')).map(cb => cb.value);
-    if (selectedIds.length === 0) return alert('삭제할 항목을 선택하세요.');
-    if (!confirm(`선택된 ${selectedIds.length}개의 지출 예상을 삭제하시겠습니까?`)) return;
-    
-    try {
-        if (editingExpenseId && selectedIds.includes(editingExpenseId)) {
-            cancelExpenseEdit();
-        }
-        const batch = db.batch();
-        selectedIds.forEach(id => batch.delete(projectedExpensesCollection.doc(id)));
-        await batch.commit();
-        alert(`${selectedIds.length}개의 항목이 삭제되었습니다.`);
-    } catch (error) {
-        console.error("데이터 삭제 오류:", error);
-        alert("데이터를 삭제하는 중 오류가 발생했습니다.");
-    }
-}
-
-function resetExpenseFilters() {
-    document.getElementById('filter-expense-month').value = '';
-    applyExpenseFiltersAndRender();
-}
-
 
 // ================== 수입원가 정산서 스크립트 (ic_ 함수) ==================
 function ic_formatInputForDisplay(input) {
@@ -2626,15 +2371,3 @@ window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
 window.ic_deleteSelectedSheets = ic_deleteSelectedSheets;
-
-// [신규] 연결
-window.calculateTransactionTotals = calculateTransactionTotals;
-window.addExpense = addExpense;
-window.editSelectedExpense = editSelectedExpense;
-window.deleteSelectedExpenses = deleteSelectedExpenses;
-window.cancelExpenseEdit = cancelExpenseEdit;
-window.resetExpenseFilters = resetExpenseFilters;
-window.applyExpenseFiltersAndRender = applyExpenseFiltersAndRender;
-window.calculateMonthlySalesSummary = calculateMonthlySalesSummary;
-
-

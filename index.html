@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>그루텍스 통합 관리 시스템 v5.4 (Firebase)</title>
+    <title>그루텍스 통합 관리 시스템 v6.0 (Firebase)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -17,14 +17,14 @@
         </div>
 
         <div class="tab-container">
-            <div class="tab active" onclick="showTab('transaction')">입출고 현황</div>
+            <div class="tab active" onclick="showTab('transaction')">입출고(원자재) 현황</div>
             <div class="tab" onclick="showTab('inventory')">재고 관리</div>
             <div class="tab" onclick="showTab('invoice')">거래명세표/청구서</div>
-            <div class="tab" onclick="showTab('remittance')">해외송금</div>
-            <div class="tab" onclick="showTab('import-cost')">수입원가 정산</div>
+            <div class="tab" onclick="showTab('remittance')">해외 송금</div>
+            <div class="tab" onclick="showTab('import-cost')">수입 원가 정산</div>
             <div class="tab" onclick="showTab('new-sales')">일반 매출</div>
-            <div class="tab" onclick="showTab('sales-report')">매출 보고서</div>
-            <div class="tab" onclick="showTab('dashboard')">대시보드</div>
+            <div class="tab" onclick="showTab('purchase')">일반 매입(국내)</div>
+            <div class="tab" onclick="showTab('memo')">메모장</div>
             <div class="tab" onclick="showTab('backup')">데이터 백업/복원</div>
         </div>
 
@@ -32,16 +32,25 @@
             <div class="section">
                 <h3 id="transaction-form-title">입출고 등록</h3>
                 <div class="input-group">
-                    <div class="input-field"><label>구분*</label><select id="transaction-type" onchange="toggleOtherCostsField()"><option value="입고">입고</option><option value="출고">출고</option></select></div>
+                    <div class="input-field"><label>구분*</label>
+                        <select id="transaction-type">
+                            <option value="입고">입고</option>
+                            <option value="출고">출고</option>
+                        </select>
+                    </div>
                     <div class="input-field"><label>날짜*</label><input type="date" id="transaction-date" required></div>
                     <div class="input-field"><label>브랜드*</label><input type="text" id="tran-brand" list="brand-list" placeholder="기존 선택 또는 신규 입력" required> <datalist id="brand-list"></datalist></div>
                     <div class="input-field"><label>LOT*</label><input type="text" id="tran-lot" list="lot-list" placeholder="기존 선택 또는 신규 입력" required><datalist id="lot-list"></datalist></div>
                     <div class="input-field"><label>제품</label><input type="text" id="tran-product" placeholder="신규 입고 시 입력"></div>
                     <div class="input-field"><label>스펙</label><input type="text" id="tran-spec" placeholder="신규 입고 시 입력"></div>
-                    <div class="input-field"><label>중량(kg)*</label><input type="number" id="transaction-weight" required></div>
-                    <div class="input-field"><label>단가(원/kg)</label><input type="number" id="transaction-unit-price" placeholder="선택 사항"></div>
+                    <div class="input-field"><label>중량(kg)*</label><input type="number" id="transaction-weight" required oninput="calculateTransactionTotals()"></div>
+                    
+                    <div class="input-field"><label>판가(원/kg)*</label><input type="number" id="transaction-selling-price" required oninput="calculateTransactionTotals()"></div>
+                    <div class="input-field"><label>원가(원/kg)</label><input type="number" id="transaction-cost-price" oninput="calculateTransactionTotals()"></div>
+                    <div class="input-field"><label>총매출(원)</label><input type="number" id="transaction-total-sales" readonly></div>
+                    <div class="input-field"><label>총마진(원)</label><input type="number" id="transaction-total-margin" readonly></div>
+                    
                     <div class="input-field"><label>업체*</label><input type="text" id="transaction-company" list="company-list-tran" placeholder="거래 업체명" required><datalist id="company-list-tran"></datalist></div>
-                    <div class="input-field" id="other-costs-field" style="display: none;"><label>기타 비용(원)</label><input type="number" id="transaction-other-costs" placeholder="운송비, 부대비용 등"></div>
                     <div class="input-field"><label>비고</label><input type="text" id="transaction-notes"></div>
                     <div class="input-field"><label>도착지</label><input type="text" id="transaction-destination"></div>
                     <div class="input-field"><label>특이사항</label><input type="text" id="transaction-special-notes"></div>
@@ -77,7 +86,10 @@
                     <thead>
                         <tr>
                              <th><input type="checkbox" id="select-all-transactions" onchange="toggleAllCheckboxes('transaction-checkbox', this.checked)"></th>
-                            <th>구분</th><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th><th>중량(kg)</th><th>단가(원/kg)</th><th>금액(원)</th><th>업체</th><th>비고</th><th>도착지</th><th>특이사항</th>
+                            <th>구분</th><th>날짜</th><th>브랜드</th><th>제품</th><th>스펙</th><th>LOT</th>
+                            <th>중량(kg)</th>
+                            <th>판가(원)</th><th>원가(원)</th><th>총매출(원)</th><th>총마진(원)</th>
+                            <th>업체</th><th>비고</th><th>도착지</th><th>특이사항</th>
                         </tr>
                     </thead>
                     <tbody id="transaction-tbody"></tbody>
@@ -85,10 +97,10 @@
                         <tr>
                             <td colspan="7" style="text-align:center;">합계</td>
                             <td id="total-tran-weight" style="text-align:left;"></td>
-                            <td></td>
-                            <td id="total-tran-amount" style="text-align:left;"></td>
-                            
-                            <td colspan="3"></td>
+                            <td></td><td></td>
+                            <td id="total-tran-sales" style="text-align:left;"></td>
+                            <td id="total-tran-margin" style="text-align:left;"></td>
+                            <td colspan="4"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -239,6 +251,145 @@
             </div>
         </div> 
         
+        <div id="purchase" class="tab-content">
+            <div class="section">
+                <h3 id="purchase-form-title">매입(국내) 등록</h3>
+                <form id="purchase-form">
+                    <div class="input-group">
+                        <div class="input-field"><label>날짜*</label><input type="date" id="purchase-date" required></div>
+                        <div class="input-field"><label>업체*</label><input type="text" id="purchase-company" list="company-list-tran" placeholder="거래 업체명" required></div>
+                        <div class="input-field"><label>브랜드*</label><input type="text" id="purchase-brand" list="brand-list" placeholder="브랜드명" required></div>
+                        <div class="input-field"><label>항목*</label>
+                            <select id="purchase-item-category">
+                                <option value="원사">원사</option>
+                                <option value="약제">약제</option>
+                                <option value="로열티">로열티</option>
+                                <option value="원단">원단</option>
+                                <option value="행택">행택</option>
+                                <option value="운임비">운임비</option>
+                                <option value="기타">기타</option>
+                            </select>
+                        </div>
+                        <div class="input-field"><label>제품</label><input type="text" id="purchase-product" placeholder="제품명"></div>
+                        <div class="input-field"><label>스펙</label><input type="text" id="purchase-spec" placeholder="스펙"></div>
+                        <div class="input-field"><label>수량*</label><input type="number" id="purchase-quantity" required oninput="calculatePurchase()"></div>
+                        <div class="input-field"><label>단위*</label>
+                            <select id="purchase-unit">
+                                <option value="kg">kg</option>
+                                <option value="yd">yd</option>
+                                <option value="m">m</option>
+                                <option value="pc">pc</option>
+                                <option value="unit">unit</option>
+                            </select>
+                        </div>
+                        <div class="input-field"><label>단가(원)*</label><input type="number" id="purchase-unit-price" required oninput="calculatePurchase()"></div>
+                        <div class="input-field"><label>총매입(원)</label><input type="number" id="purchase-total-amount" readonly></div>
+                        <div class="input-field"><label>비고</label><input type="text" id="purchase-notes"></div>
+                    </div>
+                </form>
+                <div class="btn-group" id="purchase-form-buttons">
+                    <button class="btn btn-primary" onclick="addPurchase()">➕ 매입 등록</button>
+                    <button class="btn btn-success" onclick="downloadPurchaseCsvTemplate()">📥 CSV 템플릿 다운로드</button>
+                    <button class="btn btn-warning" onclick="document.getElementById('purchase-csv-file').click()">📤 CSV 대량 등록</button>
+                </div>
+                <input type="file" id="purchase-csv-file" accept=".csv" style="display: none;" onchange="handlePurchaseCsvUpload(event)">
+                <div id="purchase-csv-preview" style="display: none; margin-top: 20px;">
+                    <h4>CSV 미리보기 (첫 5줄)</h4>
+                    <div id="purchase-csv-content" style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;"></div>
+                    <button class="btn btn-primary" onclick="processPurchaseCsvUpload()">📤 CSV 업로드 처리</button>
+                    <button class="btn btn-secondary" onclick="cancelPurchaseCsvUpload()">❌ 취소</button>
+                </div>
+            </div>
+            <div class="section filter-section">
+                <h3>매입 내역 필터</h3>
+                <div class="filter-group">
+                    <input type="month" id="filter-purchase-start-month" placeholder="년-월(시작)">
+                    <input type="month" id="filter-purchase-end-month" placeholder="년-월(끝)">
+                    <input type="text" id="filter-purchase-list-company" placeholder="업체 검색">
+                    <input type="text" id="filter-purchase-list-brand" placeholder="브랜드 검색">
+                    <input type="text" id="filter-purchase-list-item-category" placeholder="항목 검색">
+                    <input type="text" id="filter-purchase-list-product" placeholder="제품 검색">
+                    <input type="text" id="filter-purchase-list-spec" placeholder="스펙 검색">
+                </div>
+                <button class="btn btn-secondary" onclick="resetPurchaseFilters()">필터 초기화</button>
+            </div>
+            <div class="section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>매입 내역</h3>
+                    <div class="btn-group">
+                        <button class="btn btn-warning" onclick="editSelectedPurchase()">✏️ 선택 수정</button>
+                        <button class="btn btn-danger" onclick="deleteSelectedPurchases()">🗑️ 선택 삭제</button>
+                        <button class="btn btn-success" onclick="exportPurchaseCSV()">📊 CSV 내보내기</button>
+                    </div>
+                </div>
+                <table class="purchase-list-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="select-all-purchases" onchange="toggleAllCheckboxes('purchase-checkbox', this.checked)"></th>
+                            <th>날짜</th><th>업체</th><th>브랜드</th><th>항목</th><th>제품</th><th>스펙</th><th>수량</th><th>단가(원)</th><th>총매입(원)</th><th>비고</th>
+                        </tr>
+                    </thead>
+                    <tbody id="purchase-tbody"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="9" style="text-align: right; font-weight: bold;">총 합계</td>
+                            <td id="total-purchase-list-amount" style="text-align: left; font-weight: bold;">0</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        
+        <div id="memo" class="tab-content">
+
+    <div class="expenditure-grid">
+
+        <div class="expenditure-col">
+            <h4>월별 매출 조회</h4>
+            <div class="filter-group" style="grid-template-columns: 1fr 1fr 2fr; gap: 10px;">
+                <select id="exp-sales-filter-year" onchange="renderSalesTotal()"></select>
+                <select id="exp-sales-filter-month" onchange="renderSalesTotal()"></select>
+                <select id="exp-sales-filter-company" onchange="renderSalesTotal()"></select>
+            </div>
+            <div class="expenditure-summary">
+                <h4>매출 총 금액</h4>
+                <p class="amount" id="exp-total-sales">0 원</p>
+            </div>
+        </div>
+
+        <div class="expenditure-col">
+            <h4>월별 매입 조회</h4>
+            <div class="filter-group" style="grid-template-columns: 1fr 1fr 2fr; gap: 10px;">
+                <select id="exp-purchase-filter-year" onchange="renderPurchaseTotal()"></select>
+                <select id="exp-purchase-filter-month" onchange="renderPurchaseTotal()"></select>
+                <select id="exp-purchase-filter-company" onchange="renderPurchaseTotal()"></select>
+            </div>
+            <div class="expenditure-summary">
+                <h4>매입 총 금액</h4>
+                <p class="amount purchase" id="exp-total-purchase">0 원</p>
+            </div>
+        </div>
+
+        <div class="expenditure-col">
+            <h4>월별 중요 사항 메모</h4>
+            <div class="filter-group" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+                <select id="exp-memo-filter-year" onchange="renderExpenditureMemo()"></select>
+                <select id="exp-memo-filter-month" onchange="renderExpenditureMemo()"></select>
+            </div>
+            <div class="memo-pad">
+                <div id="exp-notes-list">
+                    </div>
+                <div class="memo-input-group">
+                    <input type="text" id="exp-new-note-input" placeholder="새 메모 입력...">
+                    <button class="btn btn-primary" onclick="addExpenditureNote()">추가</button>
+                </div>
+            </div>
+        </div>
+
+    </div> 
+    </div>
+
         <div id="remittance" class="tab-content">
             <div class="section">
                 <h3 id="remittance-form-title">해외 송금 등록</h3>
@@ -383,95 +534,15 @@
                  <div id="invoice-controls" class="btn-group no-print" style="justify-content: flex-end; margin-bottom: 15px;">
                       <button class="btn btn-info btn-sm" onclick="addInvoiceItemRow()">➕ 항목 추가</button>
                       <button class="btn btn-primary btn-sm" onclick="printInvoice()">🖨️ 인쇄</button>
-                      <button class="btn btn-warning btn-sm" onclick="saveInvoiceAsPDF()">📄 PDF로 저장</button>
-                 </div>
+                      </div>
                  <div id="invoice-content" class="invoice"></div>
             </div>
             <div class="invoice-wrapper printable-section" id="bill-wrapper" style="display: none;">
-                 <div id="bill-controls" class="btn-group no-print" style="justify-content: flex-end; margin-bottom: 15px;"><button class="btn btn-info btn-sm" onclick="addBillItemRow()">➕ 항목 추가</button><button class="btn btn-primary btn-sm" onclick="printBill()">🖨️ 인쇄</button><button class="btn btn-warning btn-sm" onclick="saveBillAsPDF()">📄 PDF로 저장</button></div>
+                 <div id="bill-controls" class="btn-group no-print" style="justify-content: flex-end; margin-bottom: 15px;"><button class="btn btn-info btn-sm" onclick="addBillItemRow()">➕ 항목 추가</button><button class="btn btn-primary btn-sm" onclick="printBill()">🖨️ 인쇄</button></div>
                  <div id="bill-content" class="invoice"></div>
             </div>
         </div> 
         
-        <div id="sales-report" class="tab-content">
-            <div class="section">
-                <h3>매출 보고서 필터</h3>
-                <div class="filter-group">
-                    <input type="date" class="date-placeholder" id="filter-report-start-date" placeholder="시작일">
-                    <input type="date" class="date-placeholder" id="filter-report-end-date" placeholder="종료일">
-                    <input type="text" id="filter-report-company" placeholder="업체 검색">
-                    <input type="text" id="filter-report-brand" placeholder="브랜드 검색">
-                    <input type="text" id="filter-report-item-category" placeholder="항목 검색">
-                    <input type="text" id="filter-report-product" placeholder="제품 검색">
-                    <input type="text" id="filter-report-spec" placeholder="스펙 검색">
-                </div>
-                <button class="btn btn-primary" onclick="generateSalesReport()">보고서 생성</button>
-                <button class="btn btn-secondary" onclick="resetSalesReportFilters()">필터 초기화</button>
-            </div>
-            <div class="section" id="sales-report-content">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3>매출 보고서 내역 (출고 및 매출 통합)</h3>
-                    <div class="btn-group">
-                         <button class="btn btn-success" onclick="exportSalesReportCSV()">📊 CSV 내보내기</button>
-                    </div>
-                </div>
-                <table class="sales-report-table">
-                    <thead><tr><th>월</th><th>업체</th><th>브랜드</th><th>항목</th><th>제품</th><th>스펙</th><th>LOT</th><th>수량</th><th>총 비용(원)</th><th>매출 금액(원)</th><th>최종 마진(원)</th><th>마진율(%)</th></tr></thead>
-                    <tbody id="sales-report-tbody"></tbody>
-                     <tfoot><tr><td colspan="8" style="text-align:center;">총 합계</td><td id="total-sales-total-costs" style="text-align:left;"></td><td id="total-sales-amount" style="text-align:left;"></td><td id="total-sales-margin" style="text-align:left;"></td><td id="total-sales-margin-rate" style="text-align:left;"></td></tr></tfoot>
-                </table>
-            </div>
-        </div> 
-           <div id="dashboard" class="tab-content">
-            <div class="section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 style="border-bottom: none; margin-bottom: 0;">경영 현황 요약</h3>
-                    <div class="input-field" style="max-width: 150px;">
-                        <label for="dashboard-year-filter" style="font-weight: normal; margin-bottom: 0;">기준 년도:</label>
-                        <select id="dashboard-year-filter"></select>
-                    </div>
-                </div>
-
-                <div class="kpi-container">
-                    <div class="kpi-card kpi-sales">
-                        <div class="kpi-title">총 매출</div>
-                        <div class="kpi-value" id="kpi-total-sales">0 원</div>
-                    </div>
-                    <div class="kpi-card kpi-margin">
-                        <div class="kpi-title">최종 마진</div>
-                        <div class="kpi-value" id="kpi-total-margin">0 원</div>
-                    </div>
-                    <div class="kpi-card kpi-rate">
-                        <div class="kpi-title">마진율</div>
-                        <div class="kpi-value" id="kpi-margin-rate">0.0 %</div>
-                    </div>
-                </div>
-
-                <div class="dashboard-layout">
-                    <div class="section chart-container">
-                        <h4>월별 실적 추이</h4>
-                        <div style="height: 350px;">
-                            <canvas id="monthly-chart"></canvas>
-                        </div>
-                    </div>
-                    <div class="section">
-                        <h4>Top 5 브랜드 (마진 기준)</h4>
-                        <table class="dashboard-table">
-                            <thead><tr><th>순위</th><th>브랜드</th><th>최종 마진(원)</th></tr></thead>
-                            <tbody id="top-brands-tbody"></tbody>
-                        </table>
-                    </div>
-                    <div class="section">
-                        <h4>Top 5 거래처 (마진 기준)</h4>
-                        <table class="dashboard-table">
-                             <thead><tr><th>순위</th><th>거래처</th><th>최종 마진(원)</th></tr></thead>
-                             <tbody id="top-companies-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div id="backup" class="tab-content">
             <div class="section">
                 <h3>데이터 백업 및 복원</h3>
@@ -491,8 +562,24 @@
     </div> 
     
     <div id="bulkUploadModal" class="modal">
-        <div class="modal-content"><span class="close-button" onclick="closeBulkUploadModal()">&times;</span><h2>대량 입출고 등록</h2><div class="modal-body"><p>대량 입출고를 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.</p><div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;"><button class="btn btn-info" onclick="downloadBulkTransactionTemplate()">템플릿 다운로드</button></div><form id="bulk-upload-form"><label for="bulk-csv-file">CSV 파일 선택:</label><input type="file" id="bulk-csv-file" accept=".csv"><div class="btn-group" style="justify-content: flex-end;"><button type="button" class="btn btn-primary" onclick="processBulkUpload()">대량 입출고 처리</button><button type="button" class="btn btn-secondary" onclick="closeBulkUploadModal()">닫기</button></div></form><div id="bulk-upload-status"></div></div></div>
+        <div class="modal-content"><span class="close-button" onclick="closeBulkUploadModal()">&times;</span><h2>대량 입출고 등록</h2>
+            <div class="modal-body">
+                <p>대량 입출고를 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.</p>
+                <div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;">
+                    <button class="btn btn-info" onclick="downloadBulkTransactionTemplate()">템플릿 다운로드</button>
+                </div>
+                <form id="bulk-upload-form">
+                    <label for="bulk-csv-file">CSV 파일 선택:</label><input type="file" id="bulk-csv-file" accept=".csv">
+                    <div class="btn-group" style="justify-content: flex-end;">
+                        <button type="button" class="btn btn-primary" onclick="processBulkUpload()">대량 입출고 처리</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeBulkUploadModal()">닫기</button>
+                    </div>
+                </form>
+                <div id="bulk-upload-status"></div>
+            </div>
+        </div>
     </div>
+    
     <div id="ic_bulkUploadModal" class="modal">
         <div class="modal-content"><span class="close-button" onclick="ic_closeBulkUploadModal()">&times;</span><h2>수입 정산서 대량 등록</h2><div class="modal-body"><p>일괄 등록을 위해 CSV 템플릿을 다운로드하여 데이터를 입력한 후 업로드해주세요.<br><b>*중요:</b> 동일한 정산서에 속한 품목들은 '그룹ID'를 반드시 동일하게 입력해야 합니다.</p><div class="btn-group" style="justify-content: flex-start; margin-bottom: 20px;"><button class="btn btn-info" onclick="ic_downloadBulkTemplate()">템플릿 다운로드</button></div><form id="ic_bulk-upload-form"><label for="ic_bulk-csv-file">CSV 파일 선택:</label><input type="file" id="ic_bulk-csv-file" accept=".csv"><div class="btn-group" style="justify-content: flex-end;"><button type="button" class="btn btn-primary" id="ic_bulk-upload-process-btn" onclick="ic_processBulkUpload()" disabled>일괄 등록 처리</button><button type="button" class="btn btn-secondary" onclick="ic_closeBulkUploadModal()">닫기</button></div></form><div id="ic_bulk-upload-status"></div></div></div>
     </div>

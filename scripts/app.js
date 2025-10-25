@@ -1,7 +1,7 @@
 // ************* 중요!! *************
 // Firebase 콘솔에서 확인한 내 프로젝트의 설정 정보를 여기에 붙여넣으세요.
 const firebaseConfig = {
-  apiKey: "AIzaSyBWxIrnOySRcmdjp8c6DAJmtjsrBmUbP4Q",
+ apiKey: "AIzaSyBH3V4iCmr7a4g7NFMZ3CSHvYkz6aPfQXk",
   authDomain: "my-inventory-final.firebaseapp.com",
   projectId: "my-inventory-final",
   storageBucket: "my-inventory-final.firebasestorage.app",
@@ -22,24 +22,34 @@ const transactionsCollection = db.collection('transactions');
 const importCostSheetsCollection = db.collection('importCostSheets');
 const salesCollection = db.collection('sales');
 const remittancesCollection = db.collection('remittances');
+// [추가]
+const purchasesCollection = db.collection('purchases');
+// [아래 1줄 추가] (기존 memosCollection은 지웠습니다)
+const expenditureMemosCollection = db.collection('expenditureMemos'); 
 
 // 전역 변수
 let inventory = [];
 let transactions = [];
 let sales = [];
 let remittances = [];
+// [추가]
+let purchases = [];
+// [아래 1줄 추가]
+let expenditureMemos = {}; // 월별 간단 메모 데이터 (예: {'2025-10': ['메모1', '메모2']})
 let ic_costSheets = [];
 let editingTransactionId = null;
 let editingSaleId = null;
 let editingRemittanceId = null;
 let ic_editingId = null;
+// [추가]
+let editingPurchaseId = null;
 // START: CSV 전역 변수 추가
 let salesCsvData = null; // 매출 CSV 데이터 저장용
 let remitCsvData = null; // 해외송금 CSV 데이터 저장용
+//[추가]
+let purchaseCsvData = null; // 매입 CSV 데이터 저장용
 // END: CSV 전역 변수 추가
 let currentBackupFile = null;
-// [추가] 대시보드 차트 인스턴스
-let dashboardChart = null;
 
 // ================== 0. 페이지 로딩 완료 후 실행 ==================
 document.addEventListener('DOMContentLoaded', () => {
@@ -110,7 +120,6 @@ function ic_pFloat(value) {
     return 0; // 그 외의 경우 0 반환
 }
 
-
 // --- loadAllDataFromFirebase 함수 수정 ---
 function loadAllDataFromFirebase() {
     console.log("Firestore에서 실시간 데이터 동기화를 시작합니다...");
@@ -129,7 +138,7 @@ function loadAllDataFromFirebase() {
         });
         console.log(`입출고 데이터 실시간 업데이트됨. 총 ${transactions.length}건`);
         updateAll();
-        updateDashboard(); // [추가]
+        // updateDashboard(); // [삭제] 2)
     }, error => console.error("입출고 내역 실시간 동기화 오류:", error));
 
     importCostSheetsCollection.onSnapshot(snapshot => {
@@ -142,69 +151,80 @@ function loadAllDataFromFirebase() {
         sales = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         console.log(`매출 데이터 실시간 업데이트됨. 총 ${sales.length}건`);
         applySalesFiltersAndRender();
-        generateSalesReport();
-        updateDashboard(); // [추가]
+        // generateSalesReport(); // [삭제] 2)
+        // updateDashboard(); // [삭제] 2)
     }, error => console.error("매출 내역 실시간 동기화 오류:", error));
 
     remittancesCollection.onSnapshot(snapshot => {
-        remittances = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        console.log(`해외송금 데이터 실시간 업데이트됨. 총 ${remittances.length}건`);
-        applyRemittanceFiltersAndRender();
-    }, error => console.error("해외송금 내역 실시간 동기화 오류:", error));
+    remittances = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+    // [수정] 송금 데이터 업데이트 로그 및 송금 테이블 갱신 함수 호출로 변경
+    console.log(`해외송금 데이터 실시간 업데이트됨. 총 ${remittances.length}건`); 
+    applyRemittanceFiltersAndRender(); // <-- 함수 이름 변경
+}, error => console.error("해외송금 내역 실시간 동기화 오류:", error)); // <-- 에러 메시지도 변경
+
+// [추가 START] 현황판 탭의 '월별 간단 메모' 실시간 리스너
+expenditureMemosCollection.onSnapshot(snapshot => {
+    const newMemos = {};
+    snapshot.docs.forEach(doc => {
+        // 문서 ID가 'YYYY-MM' (예: '2025-10')
+        // 문서 내용이 { notes: ['메모1', '메모2'] } 형태라고 가정
+        newMemos[doc.id] = doc.data().notes || [];
+    });
+    expenditureMemos = newMemos;
+    console.log(`현황판 월별 메모 데이터 실시간 업데이트됨.`);
+    // 현재 '중요 메모장' 탭이 활성화 상태라면 메모 목록 즉시 갱신
+    if (document.getElementById('memo')?.classList.contains('active')) {
+        renderExpenditureMemo();
+    }
+}, error => console.error("현황판 월별 메모 실시간 동기화 오류:", error));
+// [추가 END]
 
     initializeAppUI();
 }
 
 // --- initializeAppUI 함수 수정 ---
+
+
+
 function initializeAppUI() {
     console.log("UI 초기화를 시작합니다...");
     const today = new Date().toISOString().slice(0, 10);
-    ['transaction-date', 'sales-date', 'remit-date'].forEach(id => {
+// [수정] 'purchase-date', 'memo-date' 추가
+    ['transaction-date', 'sales-date', 'remit-date', 'purchase-date', 'memo-date'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = today;
-    });
-    
+    });    
+
     const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
     document.getElementById('invoice-start-date').value = firstDayOfMonth;
     document.getElementById('invoice-end-date').value = today;
     
-    // [추가] 대시보드 년도 필터 초기화
-    const yearFilter = document.getElementById('dashboard-year-filter');
-    if (yearFilter) {
-        const currentYear = new Date().getFullYear();
-        for (let i = currentYear + 1; i >= 2023; i--) {
-            const option = document.createElement('option');
-            option.value = i;
-            option.text = `${i}년`;
-            yearFilter.add(option);
-        }
-        yearFilter.value = currentYear;
-    }
-
-    bindEventListeners();
+   bindEventListeners();
     ic_addItemRow();
-    updateDashboard(); // [추가]
     console.log("UI 초기화 완료.");
+
+// [아래 1줄 추가]
+initializeExpenditureTabFilters(); 
 }
 
 // --- bindEventListeners 함수 수정 ---
 function bindEventListeners() {
+
     ['filter-inv-brand', 'filter-inv-product', 'filter-inv-spec', 'filter-inv-lot', 
      'filter-tran-type', 'filter-tran-month', 'filter-tran-brand', 'filter-tran-product', 
      'filter-tran-spec', 'filter-tran-lot', 'filter-tran-company']
     .forEach(id => document.getElementById(id)?.addEventListener('input', applyFiltersAndRender));
 
-    ['filter-report-start-date', 'filter-report-end-date', 'filter-report-company', 'filter-report-brand', 'filter-report-item-category', 'filter-report-product', 'filter-report-spec']
-    .forEach(id => document.getElementById(id)?.addEventListener('input', generateSalesReport));
-  
     ['filter-sales-start-month', 'filter-sales-end-month', 'filter-sales-list-company', 'filter-sales-list-brand', 'filter-sales-list-item-category', 'filter-sales-list-product', 'filter-sales-list-spec']
     .forEach(id => document.getElementById(id)?.addEventListener('input', applySalesFiltersAndRender));
 
     ['filter-remit-start-month', 'filter-remit-end-month', 'filter-remit-company', 'filter-remit-brand', 'filter-remit-item-category', 'filter-remit-product', 'filter-remit-spec']
     .forEach(id => document.getElementById(id)?.addEventListener('input', applyRemittanceFiltersAndRender));
 
-    // [추가] 대시보드 년도 필터 이벤트 리스너
-    document.getElementById('dashboard-year-filter')?.addEventListener('change', updateDashboard);
+// [추가 START] '매입' 및 '메모' 리스너
+    ['filter-purchase-start-month', 'filter-purchase-end-month', 'filter-purchase-list-company', 'filter-purchase-list-brand', 'filter-purchase-list-item-category', 'filter-purchase-list-product', 'filter-purchase-list-spec']
+    .forEach(id => document.getElementById(id)?.addEventListener('input', applyPurchaseFiltersAndRender));
+    // [추가 END]
 
     document.getElementById('tran-brand').addEventListener('blur', autoFillItemDetails);
     document.getElementById('tran-lot').addEventListener('blur', autoFillItemDetails);
@@ -214,13 +234,19 @@ const salesCsvEl = document.getElementById('sales-csv-file');
 if (salesCsvEl) salesCsvEl.addEventListener('change', handleSalesCsvUpload);
 const remitCsvEl = document.getElementById('remit-csv-file');
 if (remitCsvEl) remitCsvEl.addEventListener('change', handleRemittanceCsvUpload);
-// END: CSV 파일 입력 이벤트 리스너 추가
 
+// [추가 START] '매입' CSV 및 '메모' 버튼 리스너
+    const purchaseCsvEl = document.getElementById('purchase-csv-file');
+    if (purchaseCsvEl) purchaseCsvEl.addEventListener('change', handlePurchaseCsvUpload);
+
+    // [추가 END]
+// END: CSV 파일 입력 이벤트 리스너 추가
 }
 
 // ================== 2. Firebase 데이터 처리 (CRUD) ==================
 
 // --- 2.1 입출고 (Transaction) ---
+// [수정] 1) 판가/원가/총매출/총마진 적용
 async function processTransaction(isEdit) {
     const record = {
         type: document.getElementById('transaction-type').value,
@@ -228,18 +254,23 @@ async function processTransaction(isEdit) {
         brand: document.getElementById('tran-brand').value.trim(),
         lot: document.getElementById('tran-lot').value.trim(),
         company: document.getElementById('transaction-company').value.trim(),
-        //숫자 마이너스 단가 인식
         weight: ic_pFloat(document.getElementById('transaction-weight').value),
-        unitPrice: ic_pFloat(document.getElementById('transaction-unit-price').value),
-        otherCosts: ic_pFloat(document.getElementById('transaction-other-costs').value),
+        
+        // [수정] '단가', '기타비용' 삭제 -> '판가', '원가', '총매출', '총마진' 추가
+        sellingPrice: ic_pFloat(document.getElementById('transaction-selling-price').value),
+        costPrice: ic_pFloat(document.getElementById('transaction-cost-price').value),
+        totalSales: ic_pFloat(document.getElementById('transaction-total-sales').value),
+        totalMargin: ic_pFloat(document.getElementById('transaction-total-margin').value),
+        
+        // [수정] 기존 필드들
         product: document.getElementById('tran-product').value.trim(),
         spec: document.getElementById('tran-spec').value.trim(),      
-        //여기까지
         notes: document.getElementById('transaction-notes').value.trim(),
         destination: document.getElementById('transaction-destination').value.trim(),
         specialNotes: document.getElementById('transaction-special-notes').value.trim()
     };
 
+    // [수정] 유효성 검사 (weight > 0 만 체크)
     if (!record.date || !record.brand || !record.lot || record.weight <= 0 || !record.company) {
         return alert('필수 항목(날짜, 브랜드, LOT, 중량, 업체)을 모두 입력해주세요.');
     }
@@ -252,17 +283,21 @@ async function processTransaction(isEdit) {
             await transactionsCollection.add(record);
             alert('입출고 내역이 성공적으로 등록되었습니다.');
         }
-        cancelTransactionEdit();
+        cancelTransactionEdit(); // 폼 초기화
     } catch (error) {
         console.error("데이터 저장/수정 오류:", error);
         alert(`데이터를 처리하는 중 오류가 발생했습니다: ${error.message}`);
     }
 }
 
+// [수정] 1) processTransaction에서 변경된 record 객체 형식을 지원
 async function processBulkTransactions(records) {
     const batch = db.batch();
     records.forEach(record => {
+        // 유효성 검사는 processBulkUpload에서 이미 수행
         if (!record.date || !record.brand || !record.lot || record.weight <= 0 || !record.company) return;
+        
+        // record 객체는 이미 sellingPrice, costPrice, totalSales, totalMargin을 포함하고 있음
         const docRef = transactionsCollection.doc();
         batch.set(docRef, record);
     });
@@ -482,8 +517,10 @@ function backupDataToJson() {
         transactions: transactions, 
         importCostSheets: ic_costSheets,
         sales: sales,
-        remittances: remittances
-    };
+       remittances: remittances,
+    purchases: purchases, // [추가]
+    expenditureMemos: expenditureMemos // [수정] memos -> expenditureMemos 로 변경
+};
     const jsonString = JSON.stringify(backupData, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const link = document.createElement('a');
@@ -514,31 +551,48 @@ async function restoreDataFromJson() {
     reader.onload = async function(e) {
         try {
             const parsedData = JSON.parse(e.target.result);
-            if (!parsedData.transactions || !parsedData.importCostSheets || !parsedData.sales || !parsedData.remittances) {
-                return alert('선택된 파일이 유효한 백업 파일이 아닙니다.');
-            }
+ 
+            // [수정] !parsedData.memos -> !parsedData.expenditureMemos 로 변경
+if (!parsedData.transactions || !parsedData.importCostSheets || !parsedData.sales || !parsedData.remittances || !parsedData.purchases || !parsedData.expenditureMemos) { 
+    return alert('선택된 파일이 유효한 백업 파일이 아닙니다. (필수 데이터 누락)');
+}
             alert('복원을 시작합니다. 완료 메시지가 나타날 때까지 기다려주세요.');
             
-            const [oldTrans, oldSheets, oldSales, oldRemits] = await Promise.all([
-                transactionsCollection.get(), 
-                importCostSheetsCollection.get(),
-                salesCollection.get(),
-                remittancesCollection.get()
-            ]);
+            // [수정] purchases, memos 컬렉션 가져오기 추가
+           // [수정] oldMemos -> oldExpMemos, memosCollection -> expenditureMemosCollection
+const [oldTrans, oldSheets, oldSales, oldRemits, oldPurchases, oldExpMemos] = await Promise.all([ 
+    transactionsCollection.get(), 
+    importCostSheetsCollection.get(),
+    salesCollection.get(),
+    remittancesCollection.get(),
+    purchasesCollection.get(),
+    expenditureMemosCollection.get() // <-- 수정
+]);
             const deleteBatch = db.batch();
             oldTrans.docs.forEach(doc => deleteBatch.delete(doc.ref));
             oldSheets.docs.forEach(doc => deleteBatch.delete(doc.ref));
             oldSales.docs.forEach(doc => deleteBatch.delete(doc.ref));
             oldRemits.docs.forEach(doc => deleteBatch.delete(doc.ref));
-            await deleteBatch.commit();
+            oldPurchases.docs.forEach(doc => deleteBatch.delete(doc.ref)); 
+            // [수정] oldMemos -> oldExpMemos
+           oldExpMemos.docs.forEach(doc => deleteBatch.delete(doc.ref)); // <-- 수정
+await deleteBatch.commit();
 
             const addBatch = db.batch();
             parsedData.transactions.forEach(doc => { const { id, ...data } = doc; addBatch.set(transactionsCollection.doc(), data); });
             parsedData.importCostSheets.forEach(doc => { const { id, ...data } = doc; addBatch.set(importCostSheetsCollection.doc(), data); });
             parsedData.sales.forEach(doc => { const { id, ...data } = doc; addBatch.set(salesCollection.doc(), data); });
             parsedData.remittances.forEach(doc => { const { id, ...data } = doc; addBatch.set(remittancesCollection.doc(), data); });
-            await addBatch.commit();
-            
+            parsedData.purchases.forEach(doc => { const { id, ...data } = doc; addBatch.set(purchasesCollection.doc(), data); });
+// [수정] parsedData.memos -> parsedData.expenditureMemos, memosCollection -> expenditureMemosCollection
+// expenditureMemos는 { 'YYYY-MM': ['note1', 'note2'], ... } 형태이므로 다르게 처리
+Object.entries(parsedData.expenditureMemos).forEach(([monthKey, notesArray]) => {
+    if (typeof monthKey === 'string' && monthKey.match(/^\d{4}-\d{2}$/) && Array.isArray(notesArray)) {
+         addBatch.set(expenditureMemosCollection.doc(monthKey), { notes: notesArray }); // <-- 수정된 로직
+    }
+});
+await addBatch.commit();
+           
             document.getElementById('backup-status').innerText = '데이터가 성공적으로 복원되었습니다.';
             alert('데이터 복원이 완료되었습니다!');
         } catch (error) {
@@ -571,6 +625,12 @@ function updateDatalists() {
         if (r.company) sets.company.add(r.company);
     });
 
+ // [추가]
+    purchases.forEach(p => {
+        if (p.brand) sets.brand.add(p.brand);
+        if (p.company) sets.company.add(p.company);
+    });
+
     const toOption = item => `<option value="${item}"></option>`;
     document.getElementById('brand-list').innerHTML = [...sets.brand].sort().map(toOption).join('');
     document.getElementById('lot-list').innerHTML = [...sets.lot].sort().map(toOption).join('');
@@ -583,9 +643,9 @@ function updateAll() {
     recalculateInventory(); 
     applyFiltersAndRender(); 
     updateDatalists();
-    generateSalesReport(); 
+    // generateSalesReport(); // [삭제] 2) 매출 보고서 삭제
     displayInventorySummary();
-    // updateDashboard(); // [수정] 이 함수는 데이터 로드 시 직접 호출되므로 여기서 중복 호출 제거
+    // updateDashboard(); // [삭제] 2) 대시보드 삭제
 }
 
 // --- showTab 함수 수정 ---
@@ -603,11 +663,19 @@ function showTab(tabName) {
     cancelTransactionEdit();
     cancelSaleEdit();
     cancelRemittanceEdit();
+    // [추가 START]
+    cancelPurchaseEdit();
+   // [추가 END]
     ic_clearForm();
 
-    // 탭별 특수 처리
-    if (tabName === 'sales-report') generateSalesReport();
-    if (tabName === 'dashboard') updateDashboard(); // [추가]
+// [아래 추가]
+// '중요 메모장' 탭(이제 현황판)을 누르면 3개 컬럼의 데이터를 새로고침
+if (tabName === 'memo') {
+    renderAllExpenditureViews();
+}
+    // [삭제] 2) 매출 보고서 및 대시보드 관련 로직 삭제
+    // if (tabName === 'sales-report') generateSalesReport();
+    // if (tabName === 'dashboard') updateDashboard();
 
 
     // 거래명세표/청구서 탭이 아닐 경우 관련 영역 숨기기
@@ -622,192 +690,6 @@ function showTab(tabName) {
 
 // ... (ic_pFloat, toggleOtherCostsField, applyFiltersAndRender 등 기존 함수들 유지)
 
-// [추가] 대시보드 관련 함수들
-/**
- * 숫자 통화 형식으로 포맷 (예: 1,234,567 원)
- * @param {number} num - 포맷할 숫자
- */
-function formatCurrency(num) {
-    return `${Math.round(num).toLocaleString('ko-KR')} 원`;
-}
-
-/**
- * 대시보드 전체 데이터를 계산하고 UI를 업데이트합니다.
- */
-function updateDashboard() {
-    const yearFilterEl = document.getElementById('dashboard-year-filter');
-    if (!yearFilterEl) return; // 대시보드 탭이 로드되기 전이면 중단
-    
-    const selectedYear = yearFilterEl.value;
-    if (!selectedYear) return;
-
-    let totalSales = 0;
-    let totalCost = 0;
-    let monthlySales = Array(12).fill(0);
-    let monthlyMargin = Array(12).fill(0);
-    let brandMargin = {};
-    let companyMargin = {};
-
-    // 1. '출고' 거래 데이터 처리
-    transactions.forEach(t => {
-        if (t.type === '출고' && t.date.startsWith(selectedYear)) {
-            const month = new Date(t.date).getMonth(); // 0-11
-            
-            // 매출액
-            const salesAmount = (t.weight || 0) * (t.unitPrice || 0);
-            totalSales += salesAmount;
-            monthlySales[month] += salesAmount;
-            
-            // 원가
-            const matchingInbound = transactions.filter(it => it.type === '입고' && it.brand === t.brand && it.lot === t.lot).sort((a,b) => new Date(b.date) - new Date(a.date));
-            const costPrice = matchingInbound.length > 0 ? (matchingInbound[0].unitPrice || 0) : 0;
-            const costOfGoods = (t.weight || 0) * costPrice;
-            totalCost += costOfGoods;
-
-            // 마진
-            const margin = salesAmount - costOfGoods;
-            monthlyMargin[month] += margin;
-            
-            // Top 5 집계
-            if (t.brand) brandMargin[t.brand] = (brandMargin[t.brand] || 0) + margin;
-            if (t.company) companyMargin[t.company] = (companyMargin[t.company] || 0) + margin;
-        }
-    });
-
-    // 2. '일반 매출' 데이터 처리
-    sales.forEach(s => {
-        if (s.date.startsWith(selectedYear)) {
-            const month = new Date(s.date).getMonth(); // 0-11
-
-            // 매출액
-            const salesAmount = s.totalSales || 0;
-            totalSales += salesAmount;
-            monthlySales[month] += salesAmount;
-
-            // 원가
-            const costOfGoods = s.totalMargin ? (salesAmount - (s.totalMargin || 0)) : (s.quantity * s.costPrice) || 0;
-            totalCost += costOfGoods;
-
-            // 마진
-            const margin = s.totalMargin || (salesAmount - costOfGoods);
-            monthlyMargin[month] += margin;
-
-            // Top 5 집계
-            if (s.brand) brandMargin[s.brand] = (brandMargin[s.brand] || 0) + margin;
-            if (s.company) companyMargin[s.company] = (companyMargin[s.company] || 0) + margin;
-        }
-    });
-
-    // 3. KPI 카드 업데이트
-    const totalMargin = totalSales - totalCost;
-    const marginRate = totalSales !== 0 ? (totalMargin / totalSales * 100).toFixed(1) : 0;
-
-    document.getElementById('kpi-total-sales').innerText = formatCurrency(totalSales);
-    document.getElementById('kpi-total-margin').innerText = formatCurrency(totalMargin);
-    document.getElementById('kpi-margin-rate').innerText = `${marginRate} %`;
-
-    // 4. 월별 실적 차트 렌더링
-    renderDashboardChart(monthlySales, monthlyMargin, selectedYear);
-
-    // 5. Top 5 테이블 렌더링
-    const renderTop5Table = (dataMap, tbodyId) => {
-        const sortedData = Object.entries(dataMap)
-            .sort(([, marginA], [, marginB]) => marginB - marginA)
-            .slice(0, 5);
-        
-        const tbody = document.getElementById(tbodyId);
-        tbody.innerHTML = '';
-        sortedData.forEach(([name, margin], index) => {
-            const row = tbody.insertRow();
-            row.innerHTML = `
-                <td>${index + 1}</td>
-                <td>${name}</td>
-                <td style="text-align: right;">${formatCurrency(margin)}</td>
-            `;
-        });
-    };
-
-    renderTop5Table(brandMargin, 'top-brands-tbody');
-    renderTop5Table(companyMargin, 'top-companies-tbody');
-}
-
-/**
- * 월별 실적 차트를 렌더링합니다.
- * @param {number[]} salesData - 12개월치 매출 데이터
- * @param {number[]} marginData - 12개월치 마진 데이터
- * @param {string} year - 기준 년도
- */
-function renderDashboardChart(salesData, marginData, year) {
-    const ctx = document.getElementById('monthly-chart')?.getContext('2d');
-    if (!ctx) return;
-
-    if (dashboardChart) {
-        dashboardChart.destroy(); // 기존 차트 파괴
-    }
-
-    const labels = Array.from({length: 12}, (_, i) => `${year}-${(i + 1).toString().padStart(2, '0')}`);
-
-    dashboardChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: '총 매출',
-                    data: salesData,
-                    backgroundColor: 'rgba(102, 126, 234, 0.7)', // --primary-color
-                    borderColor: 'rgba(102, 126, 234, 1)',
-                    borderWidth: 1
-                },
-                {
-                    label: '최종 마진',
-                    data: marginData,
-                    backgroundColor: 'rgba(40, 167, 69, 0.7)', // --success-color
-                    borderColor: 'rgba(40, 167, 69, 1)',
-                    borderWidth: 1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return (value / 1000000).toLocaleString('ko-KR') + '백만';
-                        }
-                    }
-                },
-                x: {
-                    grid: { display: false }
-                }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) label += ': ';
-                            label += formatCurrency(context.parsed.y);
-                            return label;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-
-function toggleOtherCostsField() {
-    document.getElementById('other-costs-field').style.display = 
-        (document.getElementById('transaction-type').value === '출고') ? 'flex' : 'none';
-    if (document.getElementById('transaction-type').value !== '출고') {
-        document.getElementById('transaction-other-costs').value = '';
-    }
-}
 
 function applyFiltersAndRender() {
     const invFilters = {
@@ -879,7 +761,8 @@ function recalculateInventory() {
         
         if (t.type === '입고') {
             currentItem.quantity += weight;
-            if (t.unitPrice > 0) currentItem.costPrice = t.unitPrice;
+            // [수정] 1) 재고의 원가(costPrice)를 입고의 '원가(costPrice)'로 업데이트 (기존 unitPrice -> costPrice)
+            if (t.costPrice > 0) currentItem.costPrice = t.costPrice;
             if (t.product) currentItem.product = t.product;
             if (t.spec) currentItem.spec = t.spec;
             if (!currentItem.receivedDate || new Date(t.date) < new Date(currentItem.receivedDate)) {
@@ -956,18 +839,26 @@ function showItemHistoryInTransactionTab(brand, product, spec, lot) {
     applyFiltersAndRender();
 }
 
+// [수정] 1) 입출고 내역 테이블 업데이트 (판가/원가/총매출/총마진)
 function updateTransactionTable(transactionsToDisplay) {
     const tbody = document.getElementById('transaction-tbody');
     tbody.innerHTML = '';
-    let totalWeight = 0, totalAmount = 0;
+    let totalWeight = 0, totalSales = 0, totalMargin = 0; // [수정] 합계 변수 변경
 
     transactionsToDisplay.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(t => {
         const weight = parseFloat(t.weight) || 0;
-        const unitPrice = parseFloat(t.unitPrice) || 0;
-        const amount = weight * unitPrice;
+        // [수정] amount -> totalSales, totalMargin
+        const sales = parseFloat(t.totalSales) || 0;
+        const margin = parseFloat(t.totalMargin) || 0;
         
-        if(t.type === '입고') totalWeight += weight; else totalWeight -= weight;
-        totalAmount += amount;
+        if(t.type === '입고') {
+            totalWeight += weight;
+            // 입고는 매출/마진 합계에 포함하지 않음 (출고 기준 합계)
+        } else { // 출고
+            totalWeight -= weight;
+            totalSales += sales;
+            totalMargin += margin;
+        }
        
         const row = tbody.insertRow();
         row.innerHTML = `
@@ -975,16 +866,24 @@ function updateTransactionTable(transactionsToDisplay) {
             <td>${t.type}</td><td>${t.date}</td><td>${t.brand || ''}</td>
             <td>${t.product || ''}</td><td>${t.spec || ''}</td><td>${t.lot || ''}</td>
             <td>${weight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td>${unitPrice.toLocaleString('en-US')}</td>
-            <td>${amount.toLocaleString('en-US')}</td>
+            
+            <td>${(t.sellingPrice || 0).toLocaleString('en-US')}</td>
+            <td>${(t.costPrice || 0).toLocaleString('en-US')}</td>
+            <td>${sales.toLocaleString('en-US')}</td>
+            <td>${margin.toLocaleString('en-US')}</td>
+
             <td>${t.company}</td><td>${t.notes || ''}</td><td>${t.destination || ''}</td><td>${t.specialNotes || ''}</td>`;
     });
 
+    // [수정] 합계 표시 (total-tran-amount -> total-tran-sales, total-tran-margin)
     document.getElementById('total-tran-weight').innerText = totalWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    document.getElementById('total-tran-amount').innerText = totalAmount.toLocaleString('en-US');
+    document.getElementById('total-tran-sales').innerText = totalSales.toLocaleString('en-US');
+    document.getElementById('total-tran-margin').innerText = totalMargin.toLocaleString('en-US');
+    
     document.getElementById('select-all-transactions').checked = false;
 }
 
+// [수정] 1) 입출고 수정 폼 (판가/원가/총매출/총마진)
 function editSelectedTransaction() {
     const selectedIds = Array.from(document.querySelectorAll('.transaction-checkbox:checked')).map(cb => cb.value);
     if (selectedIds.length !== 1) return alert('수정할 항목을 하나만 선택하세요.');
@@ -1000,14 +899,23 @@ function editSelectedTransaction() {
     document.getElementById('tran-product').value = transaction.product || '';
     document.getElementById('tran-spec').value = transaction.spec || '';
     document.getElementById('transaction-weight').value = transaction.weight;
-    document.getElementById('transaction-unit-price').value = transaction.unitPrice || '';
+    
+    // [수정] 판가, 원가, 총매출, 총마진
+    document.getElementById('transaction-selling-price').value = transaction.sellingPrice || '';
+    document.getElementById('transaction-cost-price').value = transaction.costPrice || '';
+    document.getElementById('transaction-total-sales').value = transaction.totalSales || '';
+    document.getElementById('transaction-total-margin').value = transaction.totalMargin || '';
+    
+    // [삭제] 1) 단가, 기타비용 삭제
+    // document.getElementById('transaction-unit-price').value = transaction.unitPrice || '';
+    // document.getElementById('transaction-other-costs').value = transaction.otherCosts || '';
+
     document.getElementById('transaction-company').value = transaction.company;
     document.getElementById('transaction-notes').value = transaction.notes || '';
     document.getElementById('transaction-destination').value = transaction.destination || '';
     document.getElementById('transaction-special-notes').value = transaction.specialNotes || '';
-    document.getElementById('transaction-other-costs').value = transaction.otherCosts || '';
     
-    toggleOtherCostsField();
+    // toggleOtherCostsField(); // [삭제] 1)
     document.getElementById('transaction-form-title').innerText = '입출고 수정';
     document.getElementById('transaction-form-buttons').innerHTML = `
         <button class="btn btn-success" onclick="processTransaction(true)">수정 저장</button>
@@ -1015,8 +923,10 @@ function editSelectedTransaction() {
     window.scrollTo(0, 0);
 }
 
+// [수정] 1) 입출고 수정 취소 (폼 초기화)
 function cancelTransactionEdit() {
     editingTransactionId = null;
+    // [수정] 폼의 input-group을 찾아 리셋
     const form = document.querySelector('#transaction .section .input-group');
     if (form) {
         Array.from(form.querySelectorAll('input, select')).forEach(input => {
@@ -1025,11 +935,16 @@ function cancelTransactionEdit() {
         });
     }
     document.getElementById('transaction-date').value = new Date().toISOString().slice(0, 10);
+    
+    // [수정] 1) 자동 계산 필드도 ''(빈칸)으로 초기화
+    document.getElementById('transaction-total-sales').value = '';
+    document.getElementById('transaction-total-margin').value = '';
+
     document.getElementById('transaction-form-title').innerText = '입출고 등록';
     document.getElementById('transaction-form-buttons').innerHTML = `
         <button class="btn btn-primary" onclick="addTransaction()">입출고 등록</button>
         <button class="btn btn-warning" onclick="openBulkUploadModal()">대량 입출고 등록</button>`;
-    toggleOtherCostsField();
+    // toggleOtherCostsField(); // [삭제] 1)
 }
 
 function autoFillItemDetails() {
@@ -1042,18 +957,22 @@ function autoFillItemDetails() {
     if (recent) {
         document.getElementById('tran-product').value = recent.product || '';
         document.getElementById('tran-spec').value = recent.spec || '';
-        if (recent.unitPrice > 0) document.getElementById('transaction-unit-price').value = recent.unitPrice;
+        // [수정] 1) 자동완성 시 판가/원가를 가져오도록 수정
+        if (recent.sellingPrice > 0) document.getElementById('transaction-selling-price').value = recent.sellingPrice;
+        if (recent.costPrice > 0) document.getElementById('transaction-cost-price').value = recent.costPrice;
     }
 }
 
 function openBulkUploadModal() { document.getElementById('bulkUploadModal').style.display = 'flex'; }
 function closeBulkUploadModal() { document.getElementById('bulkUploadModal').style.display = 'none'; }
+
 function downloadBulkTransactionTemplate() {
-    const headers = ['거래구분(입고/출고)', '날짜(YYYY-MM-DD)*', '브랜드*', 'LOT 번호*', '중량(kg)*', '단가(원/kg)', '기타 비용', '제품', '스펙 (예: 75/48)', '업체*', '비고', '도착지', '특이사항'];
+    // [수정] 1) CSV 템플릿 헤더 변경 (판가/원가 추가, 기타비용 삭제)
+    const headers = ['거래구분(입고/출고)', '날짜(YYYY-MM-DD)*', '브랜드*', 'LOT 번호*', '중량(kg)*', '판가(원/kg)*', '원가(원/kg)', '제품', '스펙 (예: 75/48)', '업체*', '비고', '도착지', '특이사항'];
     downloadCSV(headers.join(','), '대량입출고_템플릿');
 }
 
-// [수정] '입출고 현황' CSV 처리 함수 수정 (ic_pFloat 적용)
+// [수정] 1) '입출고 현황' CSV 처리 함수 수정 (판가/원가 적용, 기타비용 삭제)
 function processBulkUpload() {
     const file = document.getElementById('bulk-csv-file').files[0];
     if (!file) return alert('파일을 선택해주세요.');
@@ -1061,22 +980,54 @@ function processBulkUpload() {
     Papa.parse(file, {
         header: true, skipEmptyLines: true,
         complete: (results) => {
-            const records = results.data.map(row => ({
-                type: row['거래구분(입고/출고)']?.trim() || '입고', 
-                date: row['날짜(YYYY-MM-DD)*']?.trim() || '',
-                brand: row['브랜드*']?.trim() || '', 
-                lot: row['LOT 번호*']?.trim() || '',
-                weight: ic_pFloat(row['중량(kg)*']), // [수정] parseFloat -> ic_pFloat
-                unitPrice: ic_pFloat(row['단가(원/kg)']), // [수정] parseFloat -> ic_pFloat
-                otherCosts: ic_pFloat(row['기타 비용']), // [수정] parseFloat -> ic_pFloat
-                product: row['제품']?.trim() || '',
-                spec: row['스펙 (예: 75/48)']?.trim() || '', 
-                company: row['업체*']?.trim() || '', 
-                notes: row['비고']?.trim() || '', 
-                destination: row['도착지']?.trim() || '', 
-                specialNotes: row['특이사항']?.trim() || ''
-            }));
-            processBulkTransactions(records);
+            const records = results.data.map(row => {
+                const weight = ic_pFloat(row['중량(kg)*']);
+                // [수정] '단가' -> '판가'
+                const sellingPrice = ic_pFloat(row['판가(원/kg)*']); 
+                // [수정] '원가' 추가
+                const costPrice = ic_pFloat(row['원가(원/kg)']);
+                const totalSales = weight * sellingPrice;
+                const totalMargin = totalSales - (weight * costPrice);
+
+                return {
+                    type: row['거래구분(입고/출고)']?.trim() || '입고', 
+                    date: row['날짜(YYYY-MM-DD)*']?.trim() || '',
+                    brand: row['브랜드*']?.trim() || '', 
+                    lot: row['LOT 번호*']?.trim() || '',
+                    weight: weight,
+                    sellingPrice: sellingPrice, // [수정]
+                    costPrice: costPrice,     // [수정]
+                    totalSales: totalSales,     // [수정]
+                    totalMargin: totalMargin,   // [수정]
+                    // otherCosts: ic_pFloat(row['기타 비용']), // [삭제] 1) 기타 비용 삭제
+                    product: row['제품']?.trim() || '',
+                    spec: row['스펙 (예: 75/48)']?.trim() || '', 
+                    company: row['업체*']?.trim() || '', 
+                    notes: row['비고']?.trim() || '', 
+                    destination: row['도착지']?.trim() || '', 
+                    specialNotes: row['특이사항']?.trim() || ''
+                };
+            });
+
+            // [수정] 1) 유효성 검사 (processTransaction과 동일하게)
+            const validRecords = records.filter(r => r.date && r.brand && r.lot && r.weight > 0 && r.company);
+            const invalidCount = records.length - validRecords.length;
+            
+            if (invalidCount > 0) {
+                alert(`총 ${records.length}건 중 ${invalidCount}건의 데이터에 필수 항목(날짜, 브랜드, LOT, 중량, 업체)이 누락되어 제외됩니다.`);
+            }
+
+            if (validRecords.length > 0) {
+                processBulkTransactions(validRecords); // 유효한 레코드만 전달
+            } else {
+                alert('처리할 유효한 데이터가 없습니다.');
+            }
+            closeBulkUploadModal(); // [수정] 1) 탭 꼬임 방지를 위해 완료 후 모달 닫기
+        },
+        error: (error) => {
+            console.error('CSV 파싱 오류:', error);
+            alert(`CSV 파일 파싱 오류: ${error.message}`);
+            closeBulkUploadModal(); // [수정] 1) 오류 시에도 모달 닫기
         }
     });
 }
@@ -1097,25 +1048,19 @@ function exportInventoryCSV() {
     downloadCSV(Papa.unparse(csvData), '재고현황');
 }
 
+// [수정] 1) 입출고 현황 CSV 내보내기 (판가/원가/총매출/총마진)
 function exportTransactionCSV() {
     const csvData = transactions.sort((a,b) => new Date(b.date) - new Date(a.date)).map(t => ({
         '거래구분': t.type, '날짜': t.date, '브랜드': t.brand, '제품': t.product, '스펙': t.spec, 'LOT': t.lot,
-        '중량(kg)': t.weight, '단가(원/kg)': t.unitPrice, '금액(원)': t.weight * t.unitPrice, 
+        '중량(kg)': t.weight, 
+        // [수정]
+        '판가(원/kg)': t.sellingPrice, 
+        '원가(원/kg)': t.costPrice, 
+        '총매출(원)': t.totalSales, 
+        '총마진(원)': t.totalMargin,
         '업체': t.company, '비고': t.notes, '도착지': t.destination, '특이사항': t.specialNotes
     }));
     downloadCSV(Papa.unparse(csvData), '입출고현황');
-}
-
-function exportSalesReportCSV() {
-    const tbody = document.getElementById('sales-report-tbody');
-    const headers = ['월', '업체', '브랜드', '품목', '제품', '스펙', 'LOT', '수량', '총 매입(원)', '매출 금액(원)', '최종 마진(원)', '마진율(%)'];
-    const data = Array.from(tbody.rows).map(row => {
-        const cells = Array.from(row.cells);
-        let rowData = {};
-        headers.forEach((header, i) => { rowData[header] = cells[i].innerText; });
-        return rowData;
-    });
-    downloadCSV(Papa.unparse(data, { header: true }), '매출보고서');
 }
 
 // START: CSV 처리 공통 함수 추가
@@ -1249,6 +1194,17 @@ function cancelCsvUpload(fileInputId, previewDivId, resetDataCallback) {
 // END: CSV 처리 공통 함수 추가
 
 
+// [추가] 1) 입출고 탭 총매출/총마진 자동 계산
+function calculateTransactionTotals() {
+    const weight = Number(document.getElementById('transaction-weight').value) || 0;
+    const sellingPrice = Number(document.getElementById('transaction-selling-price').value) || 0;
+    const costPrice = Number(document.getElementById('transaction-cost-price').value) || 0;
+    const totalSales = weight * sellingPrice;
+    const totalCost = weight * costPrice;
+    const totalMargin = totalSales - totalCost;
+    document.getElementById('transaction-total-sales').value = totalSales;
+    document.getElementById('transaction-total-margin').value = totalMargin;
+}
 
 // ================== 4-1. 신규 매출 탭 관련 함수 ==================
 
@@ -1314,7 +1270,6 @@ function updateSalesTable(salesToDisplay) {
 
     document.getElementById('select-all-sales').checked = false;
 }
-
 
 function editSelectedSale() {
     const selectedIds = Array.from(document.querySelectorAll('.sales-checkbox:checked')).map(cb => cb.value);
@@ -1571,8 +1526,472 @@ function cancelRemittanceCsvUpload() {
 // END: 해외송금 CSV 관련 함수 추가
 
 
+
+
+
+
+
+
+/**
+ * 매입(국내) 탭의 '총매입(원)'을 자동 계산합니다.
+ */
+function calculatePurchase() {
+    const quantity = Number(document.getElementById('purchase-quantity').value) || 0;
+    const unitPrice = Number(document.getElementById('purchase-unit-price').value) || 0;
+    const totalAmount = quantity * unitPrice;
+    document.getElementById('purchase-total-amount').value = totalAmount;
+}
+
+/**
+ * 매입(국내) 데이터를 Firestore에 저장하거나 수정합니다.
+ * @param {boolean} isEdit - 수정 모드 여부
+ */
+async function processPurchase(isEdit) {
+    const record = {
+        date: document.getElementById('purchase-date').value,
+        company: document.getElementById('purchase-company').value.trim(),
+        brand: document.getElementById('purchase-brand').value.trim(),
+        itemCategory: document.getElementById('purchase-item-category').value,
+        product: document.getElementById('purchase-product').value.trim(),
+        spec: document.getElementById('purchase-spec').value.trim(),
+        quantity: Number(document.getElementById('purchase-quantity').value) || 0,
+        unit: document.getElementById('purchase-unit').value,
+        unitPrice: Number(document.getElementById('purchase-unit-price').value) || 0,
+        totalAmount: Number(document.getElementById('purchase-total-amount').value) || 0,
+        notes: document.getElementById('purchase-notes').value.trim()
+    };
+
+    if (!record.date || !record.company || !record.brand || !record.itemCategory || record.quantity <= 0) {
+        return alert('필수 항목(날짜, 업체, 브랜드, 항목, 수량)을 모두 입력해주세요.');
+    }
+
+    try {
+        if (isEdit && editingPurchaseId) {
+            await purchasesCollection.doc(editingPurchaseId).update(record);
+            alert('매입 내역이 성공적으로 수정되었습니다.');
+        } else {
+            await purchasesCollection.add(record);
+            alert('매입 내역이 성공적으로 등록되었습니다.');
+        }
+        cancelPurchaseEdit();
+    } catch (error) {
+        console.error("매입 데이터 저장/수정 오류:", error);
+        alert(`매입 데이터를 처리하는 중 오류가 발생했습니다: ${error.message}`);
+    }
+}
+
+/**
+ * 선택된 매입 내역을 삭제합니다.
+ */
+async function deleteSelectedPurchases() {
+    const selectedIds = Array.from(document.querySelectorAll('.purchase-checkbox:checked')).map(cb => cb.value);
+    if (selectedIds.length === 0) return alert('삭제할 항목을 선택하세요.');
+    if (!confirm(`선택된 ${selectedIds.length}개의 매입 내역을 삭제하시겠습니까?`)) return;
+    try {
+        if (editingPurchaseId && selectedIds.includes(editingPurchaseId)) {
+            cancelPurchaseEdit();
+        }
+        const batch = db.batch();
+        selectedIds.forEach(id => batch.delete(purchasesCollection.doc(id)));
+        await batch.commit();
+        alert(`${selectedIds.length}개의 매입 내역이 삭제되었습니다.`);
+    } catch (error) {
+        console.error("매입 데이터 삭제 오류:", error);
+        alert("매입 데이터를 삭제하는 중 오류가 발생했습니다.");
+    }
+}
+
+/**
+ * 매입 내역 필터를 적용하고 테이블을 다시 렌더링합니다.
+ */
+function applyPurchaseFiltersAndRender() {
+    const filters = {
+        startMonth: document.getElementById('filter-purchase-start-month').value,
+        endMonth: document.getElementById('filter-purchase-end-month').value,
+        company: document.getElementById('filter-purchase-list-company').value.toLowerCase(),
+        brand: document.getElementById('filter-purchase-list-brand').value.toLowerCase(),
+        itemCategory: document.getElementById('filter-purchase-list-item-category').value.toLowerCase(),
+        product: document.getElementById('filter-purchase-list-product').value.toLowerCase(),
+        spec: document.getElementById('filter-purchase-list-spec').value.toLowerCase(),
+    };
+    const filteredPurchases = purchases.filter(p => {
+        const month = p.date.substring(0, 7);
+        const startCheck = !filters.startMonth || month >= filters.startMonth;
+        const endCheck = !filters.endMonth || month <= filters.endMonth;
+        return startCheck && endCheck &&
+               (p.company || '').toLowerCase().includes(filters.company) &&
+               (p.brand || '').toLowerCase().includes(filters.brand) &&
+               (p.itemCategory || '').toLowerCase().includes(filters.itemCategory) &&
+               (p.product || '').toLowerCase().includes(filters.product) &&
+               (p.spec || '').toLowerCase().includes(filters.spec);
+    });
+    updatePurchaseTable(filteredPurchases);
+}
+
+/**
+ * 매입 내역 테이블을 HTML로 렌더링합니다.
+ * @param {Array} purchasesToDisplay - 렌더링할 매입 데이터
+ */
+function updatePurchaseTable(purchasesToDisplay) {
+    const tbody = document.getElementById('purchase-tbody');
+    if (!tbody) return; // 탭이 로드되지 않았을 수 있음
+    tbody.innerHTML = '';
+    let totalAmountSum = 0;
+
+    purchasesToDisplay.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(p => {
+        totalAmountSum += p.totalAmount || 0;
+
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td><input type="checkbox" class="purchase-checkbox" value="${p.id}"></td>
+            <td>${p.date}</td><td>${p.company}</td><td>${p.brand}</td>
+            <td>${p.itemCategory}</td><td>${p.product || ''}</td><td>${p.spec || ''}</td>
+            <td>${(p.quantity || 0).toLocaleString()} ${p.unit}</td>
+            <td>${(p.unitPrice || 0).toLocaleString()}</td>
+            <td>${(p.totalAmount || 0).toLocaleString()}</td>
+            <td>${p.notes || ''}</td>`;
+    });
+    
+    document.getElementById('total-purchase-list-amount').innerText = totalAmountSum.toLocaleString();
+    const selectAllCheckbox = document.getElementById('select-all-purchases');
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+}
+
+/**
+ * '선택 수정' 버튼 클릭 시, 매입 내역을 폼에 로드합니다.
+ */
+function editSelectedPurchase() {
+    const selectedIds = Array.from(document.querySelectorAll('.purchase-checkbox:checked')).map(cb => cb.value);
+    if (selectedIds.length !== 1) return alert('수정할 항목을 하나만 선택하세요.');
+    
+    const purchase = purchases.find(p => p.id === selectedIds[0]);
+    if (!purchase) return alert("오류: 데이터를 찾을 수 없습니다.");
+    
+    editingPurchaseId = purchase.id;
+    document.getElementById('purchase-date').value = purchase.date;
+    document.getElementById('purchase-company').value = purchase.company;
+    document.getElementById('purchase-brand').value = purchase.brand;
+    document.getElementById('purchase-item-category').value = purchase.itemCategory;
+    document.getElementById('purchase-product').value = purchase.product || '';
+    document.getElementById('purchase-spec').value = purchase.spec || '';
+    document.getElementById('purchase-quantity').value = purchase.quantity;
+    document.getElementById('purchase-unit').value = purchase.unit;
+    document.getElementById('purchase-unit-price').value = purchase.unitPrice;
+    document.getElementById('purchase-total-amount').value = purchase.totalAmount;
+    document.getElementById('purchase-notes').value = purchase.notes || '';
+    
+    document.getElementById('purchase-form-title').innerText = '매입 수정';
+    document.getElementById('purchase-form-buttons').innerHTML = `
+        <button class="btn btn-success" onclick="processPurchase(true)">수정 저장</button>
+        <button class="btn btn-secondary" onclick="cancelPurchaseEdit()">취소</button>`;
+    window.scrollTo(0, 0);
+}
+
+/**
+ * 매입(국내) 폼을 초기화합니다.
+ */
+function cancelPurchaseEdit() {
+    editingPurchaseId = null;
+    document.getElementById('purchase-form').reset();
+    calculatePurchase(); // 0으로 리셋
+    document.getElementById('purchase-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('purchase-form-title').innerText = '매입 등록';
+    document.getElementById('purchase-form-buttons').innerHTML = `
+        <button class="btn btn-primary" onclick="addPurchase()">➕ 매입 등록</button>
+        <button class="btn btn-success" onclick="downloadPurchaseCsvTemplate()">📥 CSV 템플릿 다운로드</button>
+        <button class="btn btn-warning" onclick="document.getElementById('purchase-csv-file').click()">📤 CSV 대량 등록</button>`;
+}
+
+/**
+ * 매입(국내) 필터를 초기화합니다.
+ */
+function resetPurchaseFilters() {
+    ['filter-purchase-start-month', 'filter-purchase-end-month', 'filter-purchase-list-company', 'filter-purchase-list-brand', 'filter-purchase-list-item-category', 'filter-purchase-list-product', 'filter-purchase-list-spec']
+    .forEach(id => document.getElementById(id).value = '');
+    applyPurchaseFiltersAndRender();
+}
+
+/**
+ * 매입 내역을 CSV 파일로 내보냅니다.
+ */
+function exportPurchaseCSV() {
+    const csvData = purchases.sort((a,b) => new Date(b.date) - new Date(a.date)).map(p => ({
+        '날짜': p.date, '업체': p.company, '브랜드': p.brand, '항목': p.itemCategory, '제품': p.product,
+        '스펙': p.spec, '수량': p.quantity, '단위': p.unit, '단가(원)': p.unitPrice,
+        '총매입(원)': p.totalAmount, '비고': p.notes
+    }));
+    downloadCSV(Papa.unparse(csvData), '매입(국내)내역');
+}
+
+// --- 매입 CSV 관련 함수 ---
+function downloadPurchaseCsvTemplate() {
+    const headers = ["날짜*", "업체*", "브랜드*", "항목*", "제품", "스펙", "수량*", "단위*", "단가(원)*", "비고"];
+    const csv = headers.join(',') + '\n';
+    downloadCSV(csv, '매입(국내)_등록_템플릿');
+}
+
+function handlePurchaseCsvUpload(event) {
+    handleCsvUpload(event, 'purchase-csv-preview', 'purchase-csv-content', (data) => { purchaseCsvData = data; });
+}
+
+function processPurchaseCsvUpload() {
+    processCsvData(purchaseCsvData, 'purchase-csv-file', (row, index) => {
+        const purchase = {
+            date: row['날짜*']?.trim() || '',
+            company: row['업체*']?.trim() || '',
+            brand: row['브랜드*']?.trim() || '',
+            itemCategory: row['항목*']?.trim() || '',
+            product: row['제품']?.trim() || '',
+            spec: row['스펙']?.trim() || '',
+            quantity: ic_pFloat(row['수량*']),
+            unit: row['단위*']?.trim() || 'kg',
+            unitPrice: ic_pFloat(row['단가(원)*']),
+            notes: row['비고']?.trim() || ''
+        };
+        purchase.totalAmount = purchase.quantity * purchase.unitPrice;
+
+        if (!purchase.date || !purchase.company || !purchase.brand || !purchase.itemCategory || purchase.quantity <= 0) {
+            console.error(`매입 CSV 유효성 검사 실패 (행 ${index + 2}):`, row);
+            return null; // 유효하지 않으면 null 반환
+        }
+        return purchasesCollection.add(purchase); // Firestore에 추가하는 Promise 반환
+    }, cancelPurchaseCsvUpload, '매입(국내)');
+}
+
+function cancelPurchaseCsvUpload() {
+    cancelCsvUpload('purchase-csv-file', 'purchase-csv-preview', () => { purchaseCsvData = null; });
+}
+// [추가] END: ================== 4-x. 매입(국내) 탭 관련 함수 ==================
+
+// [추가] START: ================== 5. 현황판 (구. 중요메모장) 탭 함수 ==================
+/**
+ * 현황판 탭의 3개 필터(매출/매입/메모)를 초기화합니다.
+ */
+function initializeExpenditureTabFilters() {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = String(today.getMonth() + 1).padStart(2, '0');
+
+    // --- 데이터에서 업체 목록 추출 ---
+    // (app.js의 sales, purchases 전역 변수를 사용)
+    const salesCompanies = new Set();
+    const purchaseCompanies = new Set();
+    sales.forEach(r => { if (r.company) salesCompanies.add(r.company); });
+    // [연동] 입출고(transactions) 데이터의 업체도 '매출' 업체 목록에 포함
+    transactions.forEach(t => { if (t.type === '출고' && t.company) salesCompanies.add(t.company); });
+    purchases.forEach(r => { if (r.company) purchaseCompanies.add(r.company); });
+
+    const sortedSalesCompanies = [...salesCompanies].sort();
+    const sortedPurchaseCompanies = [...purchaseCompanies].sort();
+
+    // --- 드롭다운 옵션 생성 헬퍼 ---
+    const yearOptions = Array.from({length: 10}, (_, i) => currentYear - 5 + i).reverse().map(y => `<option value="${y}">${y}년</option>`).join('');
+    const monthOptions = Array.from({length: 12}, (_, i) => `<option value="${String(i+1).padStart(2,'0')}">${i+1}월</option>`).join('');
+
+    const populateYears = (selectId, setDefault = true) => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            select.innerHTML = '<option value="">전체 연도</option>' + yearOptions;
+            if (setDefault) select.value = currentYear;
+        }
+    };
+    const populateMonths = (selectId, setDefault = true) => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            select.innerHTML = '<option value="">전체 월</option>' + monthOptions;
+            if (setDefault) select.value = currentMonth;
+        }
+    };
+
+    // --- 1. 메모 필터 채우기 (연/월만) ---
+    const memoYear = document.getElementById('exp-memo-filter-year');
+    const memoMonth = document.getElementById('exp-memo-filter-month');
+    if(memoYear) memoYear.innerHTML = Array.from({length: 10}, (_, i) => currentYear - 5 + i).reverse().map(y => `<option value="${y}">${y}년</option>`).join('');
+    if(memoMonth) memoMonth.innerHTML = Array.from({length: 12}, (_, i) => `<option value="${String(i+1).padStart(2,'0')}">${i+1}월</option>`).join('');
+    if(memoYear) memoYear.value = currentYear;
+    if(memoMonth) memoMonth.value = currentMonth;
+
+    // --- 2. 매출 필터 채우기 (연/월/업체) ---
+    populateYears('exp-sales-filter-year', true);
+    populateMonths('exp-sales-filter-month', true);
+    const salesCompanySelect = document.getElementById('exp-sales-filter-company');
+    if (salesCompanySelect) {
+        salesCompanySelect.innerHTML = '<option value="">전체 업체</option>' + sortedSalesCompanies.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    // --- 3. 매입 필터 채우기 (연/월/업체) ---
+    populateYears('exp-purchase-filter-year', true);
+    populateMonths('exp-purchase-filter-month', true);
+    const purchaseCompanySelect = document.getElementById('exp-purchase-filter-company');
+    if (purchaseCompanySelect) {
+        purchaseCompanySelect.innerHTML = '<option value="">전체 업체</option>' + sortedPurchaseCompanies.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+}
+
+/**
+ * 현황판의 3개 뷰(매출/매입/메모)를 모두 새로고침합니다.
+ */
+function renderAllExpenditureViews() {
+    // 필터 드롭다운의 업체 목록도 업데이트 (새 업체가 추가되었을 수 있으므로)
+    initializeExpenditureTabFilters(); 
+
+    // 3개 컴포넌트 렌더링
+    renderSalesTotal();
+    renderPurchaseTotal();
+    renderExpenditureMemo();
+}
+
+/**
+ * [연동] 월별 매출 총 금액 계산 (입출고(출고) + 일반매출)
+ */
+function renderSalesTotal() {
+    const year = document.getElementById('exp-sales-filter-year').value;
+    const month = document.getElementById('exp-sales-filter-month').value;
+    const company = document.getElementById('exp-sales-filter-company').value;
+
+    // 날짜 필터 로직
+    const dateFilter = (item) => {
+        let dateMatch = true;
+        if (year && month) dateMatch = item.date.startsWith(`${year}-${month}`);
+        else if (year) dateMatch = item.date.startsWith(year);
+        else if (month) dateMatch = item.date.substring(5, 7) === month;
+        return dateMatch;
+    };
+    // 업체 필터 로직
+    const companyFilter = (item) => !company || item.company === company;
+
+    // 1. [연동] '입출고 현황(transactions)' 중 '출고' 데이터 합산
+    const totalFromTransactions = transactions
+        .filter(t => t.type === '출고')
+        .filter(dateFilter)
+        .filter(companyFilter)
+        .reduce((sum, t) => sum + (t.totalSales || 0), 0);
+
+    // 2. [연동] '일반 매출(sales)' 데이터 합산
+    const totalFromSales = sales
+        .filter(dateFilter)
+        .filter(companyFilter)
+        .reduce((sum, s) => sum + (s.totalSales || 0), 0);
+
+    // 3. 두 합계 더하기
+    const totalSales = totalFromTransactions + totalFromSales;
+    document.getElementById('exp-total-sales').textContent = `${Math.round(totalSales).toLocaleString()} 원`;
+}
+
+/**
+ * [연동] 월별 매입 총 금액 계산 (매입(국내))
+ */
+function renderPurchaseTotal() {
+    const year = document.getElementById('exp-purchase-filter-year').value;
+    const month = document.getElementById('exp-purchase-filter-month').value;
+    const company = document.getElementById('exp-purchase-filter-company').value;
+
+    // 1. [연동] '매입(국내)(purchases)' 데이터 합산
+    const filteredPurchase = purchases.filter(p => {
+        let dateMatch = true;
+        if (year && month) dateMatch = p.date.startsWith(`${year}-${month}`);
+        else if (year) dateMatch = p.date.startsWith(year);
+        else if (month) dateMatch = p.date.substring(5, 7) === month;
+
+        const companyMatch = !company || p.company === company;
+        return dateMatch && companyMatch;
+    });
+
+    // 2. 합계 계산
+    const totalPurchase = filteredPurchase.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+    document.getElementById('exp-total-purchase').textContent = `${Math.round(totalPurchase).toLocaleString()} 원`;
+}
+
+/**
+ * 월별 간단 메모 렌더링 (전역 변수 expenditureMemos 사용)
+ */
+function renderExpenditureMemo() {
+    const yearSelect = document.getElementById('exp-memo-filter-year');
+    const monthSelect = document.getElementById('exp-memo-filter-month');
+    if (!yearSelect || !monthSelect) return; 
+
+    const year = yearSelect.value;
+    const month = monthSelect.value;
+    const monthKey = `${year}-${month}`; // 예: '2025-10'
+
+    const notesListEl = document.getElementById('exp-notes-list');
+    notesListEl.innerHTML = '';
+    const notes = expenditureMemos[monthKey] || []; // 전역 변수에서 해당 월의 메모 배열 가져오기
+
+    notes.forEach((note, index) => {
+        notesListEl.innerHTML += `
+            <div class="note-item">
+                <span>${note}</span>
+                <button onclick="deleteExpenditureNote(${index})">&times;</button>
+            </div>
+        `;
+    });
+}
+
+/**
+ * 새 간단 메모를 Firebase에 추가
+ */
+async function addExpenditureNote() {
+    const year = document.getElementById('exp-memo-filter-year').value;
+    const month = document.getElementById('exp-memo-filter-month').value;
+    const monthKey = `${year}-${month}`; // 문서 ID
+
+    const inputEl = document.getElementById('exp-new-note-input');
+    const newNote = inputEl.value.trim();
+    if (!newNote) return;
+
+    // Firebase에서 현재 월의 메모 배열 가져오기 (없으면 빈 배열)
+    const currentNotes = expenditureMemos[monthKey] || [];
+    // 새 메모 추가
+    const updatedNotes = [...currentNotes, newNote];
+
+    try {
+        // Firebase의 'YYYY-MM' 문서를 새 배열로 덮어쓰기 (set)
+        await expenditureMemosCollection.doc(monthKey).set({ notes: updatedNotes });
+        // 성공 시 UI 즉시 업데이트 (onSnapshot이 처리하지만, 빠른 반응을 위해 수동 호출)
+        renderExpenditureMemo(); 
+        inputEl.value = '';
+    } catch (error) {
+        console.error("현황판 메모 추가 오류:", error);
+        alert("메모 추가 중 오류가 발생했습니다.");
+    }
+}
+
+/**
+ * 간단 메모를 Firebase에서 삭제
+ */
+async function deleteExpenditureNote(index) {
+    const year = document.getElementById('exp-memo-filter-year').value;
+    const month = document.getElementById('exp-memo-filter-month').value;
+    const monthKey = `${year}-${month}`;
+
+    // 전역 변수에서 현재 메모 배열 가져오기
+    const currentNotes = expenditureMemos[monthKey] || [];
+
+    if (currentNotes[index] === undefined) return;
+
+    if (confirm(`"${currentNotes[index]}" 메모를 삭제하시겠습니까?`)) {
+        // 해당 인덱스만 제외하고 새 배열 만들기
+        const updatedNotes = currentNotes.filter((_, i) => i !== index);
+
+        try {
+            // Firebase 문서를 새 배열로 덮어쓰기
+            await expenditureMemosCollection.doc(monthKey).set({ notes: updatedNotes });
+            // 성공 시 UI 즉시 업데이트
+            renderExpenditureMemo();
+        } catch (error) {
+            console.error("현황판 메모 삭제 오류:", error);
+            alert("메모 삭제 중 오류가 발생했습니다.");
+        }
+    }
+}
+// [추가] END: ================== 5. 현황판 (구. 중요메모장) 탭 함수 ==================
+
+
+
 // ================== 4-3. 거래명세서/청구서 ==================
 // START: generateInvoice 함수 교체 (빈 줄 제거)
+
 function generateInvoice() {
     const recipientCompany = document.getElementById('recipient-company').value.trim();
     const startDate = document.getElementById('invoice-start-date').value;
@@ -1600,11 +2019,13 @@ function generateInvoice() {
 
     // 3. 데이터 병합 및 정렬
     let combinedItems = [];
+   
     filteredTransactions.forEach(t => combinedItems.push({
-        isTransaction: true, // 데이터 출처 구분
-        date: t.date, brand: t.brand, product: t.product, spec: t.spec, lot: t.lot,
-        unit: 'kg', quantity: t.weight, unitPrice: t.unitPrice, notes: t.notes, destination: t.destination
-    }));
+    isTransaction: true, // 데이터 출처 구분
+    date: t.date, brand: t.brand, product: t.product, spec: t.spec, lot: t.lot,
+    unit: 'kg', quantity: t.weight, unitPrice: t.sellingPrice, notes: t.notes, destination: t.destination // <-- t.unitPrice -> t.sellingPrice 변경
+}));
+
     filteredSales.forEach(s => combinedItems.push({
         isTransaction: false, // 데이터 출처 구분
         date: s.date, brand: s.brand, product: s.product, spec: s.spec, lot: '', // 매출엔 LOT 없음
@@ -1741,8 +2162,6 @@ function updateInvoiceTotals() {
 // END: 거래명세표 행 추가 및 합계 계산 함수 추가
 
 
-
-
 // START: generateBill 함수 교체
 function generateBill() {
     document.getElementById('invoice-wrapper').style.display = 'none'; // 명세서 숨기기
@@ -1772,12 +2191,14 @@ function generateBill() {
 
     // 3. 데이터 병합 및 정렬 (입고는 음수 수량으로 처리하여 합계 계산)
     let combinedItems = [];
-    filteredTransactions.forEach(t => combinedItems.push({
-        isTransaction: true,
-        date: t.date, brand: t.brand, product: t.product, spec: t.spec, lot: t.lot, unit: 'kg',
-        quantity: t.type === '입고' ? -t.weight : t.weight, // 입고는 음수로
-        unitPrice: t.unitPrice, notes: t.notes
-    }));
+
+   filteredTransactions.forEach(t => combinedItems.push({
+    isTransaction: true,
+    date: t.date, brand: t.brand, product: t.product, spec: t.spec, lot: t.lot, unit: 'kg',
+    quantity: t.type === '입고' ? -t.weight : t.weight, // 입고는 음수로
+    unitPrice: t.sellingPrice, notes: t.notes // <-- t.unitPrice -> t.sellingPrice 변경
+}));
+
     filteredSales.forEach(s => combinedItems.push({
         isTransaction: false,
         date: s.date, brand: s.brand, product: s.product, spec: s.spec, lot: '', unit: s.unit,
@@ -1933,97 +2354,6 @@ function addBillItemRow() {
     calculateBillTotals(); // 행 추가 후 합계 재계산
 }
 // END: addBillItemRow 함수 교체
-
-// ================== 4-4. 매출 보고서 생성 함수 ==================
-function generateSalesReport() {
-    const startDate = document.getElementById('filter-report-start-date').value;
-    const endDate = document.getElementById('filter-report-end-date').value;
-    const companyFilter = document.getElementById('filter-report-company').value.toLowerCase();
-    const brandFilter = document.getElementById('filter-report-brand').value.toLowerCase();
-    const itemCategoryFilter = document.getElementById('filter-report-item-category').value.toLowerCase();
-    const productFilter = document.getElementById('filter-report-product').value.toLowerCase();
-    const specFilter = document.getElementById('filter-report-spec').value.toLowerCase();
-
-    const outgoingTransactions = transactions.filter(t => {
-        const transactionDate = new Date(t.date);
-        const startCheck = !startDate || transactionDate >= new Date(startDate);
-        const endCheck = !endDate || transactionDate <= new Date(endDate);
-        // '원자재' 항목 필터링 로직 수정
-        const categoryCheck = !itemCategoryFilter || '원자재'.toLowerCase().includes(itemCategoryFilter);
-
-        return t.type === '출고' && startCheck && endCheck && categoryCheck &&
-            (!companyFilter || t.company.toLowerCase().includes(companyFilter)) &&
-            (!brandFilter || (t.brand||'').toLowerCase().includes(brandFilter)) &&
-            (!productFilter || (t.product || '').toLowerCase().includes(productFilter)) &&
-            (!specFilter || (t.spec || '').toLowerCase().includes(specFilter));
-    });
-
-    const salesData = sales.filter(s => {
-        const saleDate = new Date(s.date);
-        const startCheck = !startDate || saleDate >= new Date(startDate);
-        const endCheck = !endDate || saleDate <= new Date(endDate);
-        return startCheck && endCheck &&
-            (!companyFilter || s.company.toLowerCase().includes(companyFilter)) &&
-            (!brandFilter || (s.brand||'').toLowerCase().includes(brandFilter)) &&
-            (!itemCategoryFilter || (s.itemCategory || '').toLowerCase().includes(itemCategoryFilter)) &&
-            (!productFilter || (s.product || '').toLowerCase().includes(productFilter)) &&
-            (!specFilter || (s.spec || '').toLowerCase().includes(specFilter));
-    });
-
-    let reportData = [];
-
-    outgoingTransactions.forEach(t => {
-        const matchingInbound = transactions.filter(it => it.type === '입고' && it.brand === t.brand && it.lot === t.lot).sort((a,b) => new Date(b.date) - new Date(a.date));
-        const costPrice = matchingInbound.length > 0 ? matchingInbound[0].unitPrice : 0;
-        const salesAmount = t.weight * t.unitPrice;
-        const costOfGoods = t.weight * costPrice;
-        const totalCosts = costOfGoods;
-        const margin = salesAmount - totalCosts;
-        
-        reportData.push({
-            date: t.date, company: t.company, brand: t.brand,
-            itemCategory: '원자재', // '항목' 컬럼에 들어갈 값
-            product: t.product, spec: t.spec, lot: t.lot,
-            quantity: t.weight, unit: 'kg', // 단위 추가
-            totalCosts: totalCosts, salesAmount: salesAmount, margin: margin
-        });
-    });
-
-    salesData.forEach(s => {
-        reportData.push({
-            date: s.date, company: s.company, brand: s.brand,
-            itemCategory: s.itemCategory, product: s.product, spec: s.spec, lot: '',
-            quantity: s.quantity, unit: s.unit, // 단위 추가
-            totalCosts: s.quantity * s.costPrice, salesAmount: s.totalSales, margin: s.totalMargin
-        });
-    });
-
-    const tbody = document.getElementById('sales-report-tbody');
-    tbody.innerHTML = '';
-    let totalSalesAmount = 0, totalCostsSum = 0, totalMarginSum = 0;
-
-    reportData.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(item => {
-        const marginRate = item.salesAmount !== 0 ? (item.margin / item.salesAmount * 100).toFixed(2) : 0;
-        totalSalesAmount += item.salesAmount;
-        totalCostsSum += item.totalCosts;
-        totalMarginSum += item.margin;
-
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td>${item.date.substring(0, 7)}</td><td>${item.company}</td><td>${item.brand}</td>
-            <td>${item.itemCategory}</td><td>${item.product || ''}</td><td>${item.spec || ''}</td>
-            <td>${item.lot || ''}</td><td>${item.quantity.toLocaleString(undefined, {maximumFractionDigits:2})} ${item.unit || ''}</td>
-            <td>${Math.round(item.totalCosts).toLocaleString()}</td>
-            <td>${Math.round(item.salesAmount).toLocaleString()}</td>
-            <td>${Math.round(item.margin).toLocaleString()}</td><td>${marginRate}%</td>`;
-    });
-
-    const totalMarginRate = totalSalesAmount !== 0 ? (totalMarginSum / totalSalesAmount * 100).toFixed(2) : '0.00';
-    document.getElementById('total-sales-total-costs').innerText = Math.round(totalCostsSum).toLocaleString();
-    document.getElementById('total-sales-amount').innerText = Math.round(totalSalesAmount).toLocaleString();
-    document.getElementById('total-sales-margin').innerText = Math.round(totalMarginSum).toLocaleString();
-    document.getElementById('total-sales-margin-rate').innerText = `${totalMarginRate}%`;
-}
 
 function toggleAllCheckboxes(className, checked) {
     document.querySelectorAll(`.${className}`).forEach(checkbox => checkbox.checked = checked);
@@ -2298,7 +2628,8 @@ window.editSelectedTransaction = editSelectedTransaction;
 window.deleteSelectedTransactions = deleteSelectedTransactions;
 window.cancelTransactionEdit = cancelTransactionEdit;
 window.showTab = showTab;
-window.toggleOtherCostsField = toggleOtherCostsField;
+// window.toggleOtherCostsField = toggleOtherCostsField; // [삭제] 1)
+window.calculateTransactionTotals = calculateTransactionTotals; // [추가] 1)
 window.openBulkUploadModal = openBulkUploadModal;
 window.resetTransactionFilters = resetTransactionFilters;
 window.exportTransactionCSV = exportTransactionCSV;
@@ -2349,9 +2680,26 @@ window.handleBillTableInput = handleBillTableInput; // 청구서 테이블 입�
 window.handleInvoiceTableInput = handleInvoiceTableInput; // 거래명세서 테이블 입력 핸들러
 // END: 거래명세표/청구서 관련 함수 window 연결 추가
 
-window.generateSalesReport = generateSalesReport;
-window.resetSalesReportFilters = resetSalesReportFilters;
-window.exportSalesReportCSV = exportSalesReportCSV;
+// [삭제] 2) 매출 보고서 관련
+// window.generateSalesReport = generateSalesReport;
+// window.resetSalesReportFilters = resetSalesReportFilters;
+// window.exportSalesReportCSV = exportSalesReportCSV;
+
+// [추가] START: 매입(국내) 탭 함수 연결
+window.calculatePurchase = calculatePurchase;
+window.addPurchase = () => processPurchase(false);
+window.processPurchase = processPurchase;
+window.editSelectedPurchase = editSelectedPurchase;
+window.deleteSelectedPurchases = deleteSelectedPurchases;
+window.cancelPurchaseEdit = cancelPurchaseEdit;
+window.resetPurchaseFilters = resetPurchaseFilters;
+window.exportPurchaseCSV = exportPurchaseCSV;
+window.downloadPurchaseCsvTemplate = downloadPurchaseCsvTemplate;
+window.handlePurchaseCsvUpload = handlePurchaseCsvUpload;
+window.processPurchaseCsvUpload = processPurchaseCsvUpload;
+window.cancelPurchaseCsvUpload = cancelPurchaseCsvUpload;
+// [추가] END
+
 window.ic_addItemRow = ic_addItemRow;
 window.ic_calculateAll = ic_calculateAll;
 window.ic_formatInputForDisplay = ic_formatInputForDisplay;
@@ -2371,3 +2719,10 @@ window.backupDataToJson = backupDataToJson;
 window.restoreDataFromJson = restoreDataFromJson;
 window.loadBackupFile = loadBackupFile;
 window.ic_deleteSelectedSheets = ic_deleteSelectedSheets;
+// [추가] START: 현황판(구. 중요메모장) 탭 함수 연결
+window.renderSalesTotal = renderSalesTotal;
+window.renderPurchaseTotal = renderPurchaseTotal;
+window.renderExpenditureMemo = renderExpenditureMemo;
+window.addExpenditureNote = addExpenditureNote;
+window.deleteExpenditureNote = deleteExpenditureNote;
+// [추가] END

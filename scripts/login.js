@@ -1,7 +1,7 @@
 // ************* 중요!! *************
 // Firebase 콘솔에서 확인한 내 프로젝트의 설정 정보를 여기에 붙여넣으세요.
 const firebaseConfig = {
-  apiKey: "AIzaSyAx0BJw2CNX4-LdJR8M7wZAgBIrFZhMzQg",
+  apiKey: "AIzaSyDNFkJW7BPLV2OyaFQl7OEM4kq8wHuej3Y",
   authDomain: "my-inventory-final.firebaseapp.com",
   projectId: "my-inventory-final",
   storageBucket: "my-inventory-final.firebasestorage.app",
@@ -77,5 +77,6 @@ loginForm.addEventListener('submit', (e) => {
             }
         });
 });
+
 
 

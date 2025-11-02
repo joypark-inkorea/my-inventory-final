@@ -1,7 +1,7 @@
 // ************* 중요!! *************
 // Firebase 콘솔에서 확인한 내 프로젝트의 설정 정보를 여기에 붙여넣으세요.
 const firebaseConfig = {
- apiKey: "AIzaSyDM8xXPkKpd13ObhvU-wLNQw9GAaQ3oedI",
+ apiKey: "AIzaSyAx0BJw2CNX4-LdJR8M7wZAgBIrFZhMzQg",
   authDomain: "my-inventory-final.firebaseapp.com",
   projectId: "my-inventory-final",
   storageBucket: "my-inventory-final.firebasestorage.app",
@@ -2726,4 +2726,5 @@ window.renderExpenditureMemo = renderExpenditureMemo;
 window.addExpenditureNote = addExpenditureNote;
 window.deleteExpenditureNote = deleteExpenditureNote;
 // [추가] END
+
 
